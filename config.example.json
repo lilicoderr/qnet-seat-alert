@@ -1,0 +1,26 @@
+{
+  "comment": "이 파일을 복사해 config.json 으로 만들고 webhookUrl·watchers 의 url 을 채우세요. config.json 은 커밋 금지(.gitignore).",
+  "webhookUrl": "https://discord.com/api/webhooks/000000000000000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+  "username": "Q-Net 빈자리 알림",
+  "intervalMin": 5,
+  "politeDelayMs": 1500,
+  "statePath": "state.json",
+  "watchers": [
+    {
+      "name": "전기기능사 필기 OO지역",
+      "type": "seats",
+      "alertOn": "open",
+      "url": "https://www.q-net.or.kr/ (실제 열람 가능한 접수현황 페이지/엔드포인트 URL)",
+      "linkUrl": "https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301",
+      "mention": ""
+    },
+    {
+      "name": "접수 버튼 등장 감시(예시)",
+      "type": "contains",
+      "needle": "접수하기",
+      "alertWhen": "present",
+      "url": "https://www.q-net.or.kr/ (대상 페이지)",
+      "enabled": false
+    }
+  ]
+}

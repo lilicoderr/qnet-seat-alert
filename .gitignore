@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.env
+# 웹훅 URL·설정은 비밀 — 커밋 금지
+config.json
+state.json
+.qnet-alert/
