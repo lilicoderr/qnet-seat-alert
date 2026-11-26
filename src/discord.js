@@ -23,11 +23,24 @@ export async function sendAlert(webhookUrl, payload, { fetchImpl = DEFAULT_FETCH
     }));
   }
   const body = JSON.stringify({ username, content: payload.content || '', embeds: [embed] });
-  const res = await fetchImpl(webhookUrl, {
+  const doPost = () => fetchImpl(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,
   });
+
+  let res = await doPost();
+  // Discord 레이트리밋(429): retry_after 만큼 기다렸다 1회 재시도
+  if (res.status === 429) {
+    let waitMs = 1000;
+    try {
+      const j = await res.clone().json();
+      if (j.retry_after) waitMs = Math.ceil(Number(j.retry_after) * (j.retry_after < 100 ? 1000 : 1));
+    } catch { /* 헤더 기본값 사용 */ }
+    waitMs = Math.min(Math.max(waitMs, 500), 10000);
+    await new Promise((r) => setTimeout(r, waitMs));
+    res = await doPost();
+  }
   if (!res.ok && res.status !== 204) {
     const text = await res.text().catch(() => '');
     throw new Error(`웹훅 전송 실패 (${res.status}) ${text.slice(0, 200)}`);

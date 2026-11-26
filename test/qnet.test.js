@@ -137,3 +137,15 @@ test('validateConfig: 오류/경고 감지', async () => {
   const good = validateConfig({ webhookUrl: 'https://discord.com/api/webhooks/1/abc', watchers: [{ name: 'y', type: 'seats', url: 'https://x' }] });
   assert.equal(good.ok, true);
 });
+
+test('sendAlert: 429 레이트리밋이면 retry_after 후 1회 재시도', async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls === 1) return { ok: false, status: 429, clone: () => ({ json: async () => ({ retry_after: 0.01 }) }) };
+    return { ok: true, status: 204 };
+  };
+  const ok = await sendAlert('https://discord.com/api/webhooks/1/abc', { title: 't' }, { fetchImpl });
+  assert.equal(ok, true);
+  assert.equal(calls, 2);
+});
