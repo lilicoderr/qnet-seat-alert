@@ -53,11 +53,17 @@ export async function runWatcher(watcher, { store, fetchImpl = DEFAULT_FETCH, ti
 }
 
 // 전체 설정 1회 실행. 알림까지 보낸다.
-export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = () => {} } = {}) {
+export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = () => {}, dry = false } = {}) {
   const results = [];
   for (const watcher of config.watchers || []) {
     if (watcher.enabled === false) continue;
     const r = await runWatcher(watcher, { store, fetchImpl });
+    if (dry) {
+      log(`${formatLine(r)}${r.shouldAlert ? ' (dry: 알림 생략)' : ''}`);
+      results.push(r);
+      if (config.politeDelayMs) await sleep(config.politeDelayMs);
+      continue;
+    }
     if (r.ok && r.shouldAlert) {
       const webhook = watcher.webhookUrl || config.webhookUrl;
       if (webhook) {

@@ -20,6 +20,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--config') args.config = argv[++i];
     else if (argv[i] === '--test-webhook') args.testWebhook = true;
     else if (argv[i] === '--list') args.list = true;
+    else if (argv[i] === '--dry') { args.dry = true; args.once = true; }
   }
   return args;
 }
@@ -33,6 +34,15 @@ async function main() {
     process.exit(1);
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+  // 설정 검증 (dry 모드에선 웹훅 없어도 OK)
+  const { validateConfig } = await import('../src/validate.js');
+  const v = validateConfig(config, { requireWebhook: !args.dry });
+  for (const w of v.warnings) console.error(`⚠️  ${w}`);
+  if (!v.ok) {
+    for (const e of v.errors) console.error(`❌ ${e}`);
+    process.exit(1);
+  }
 
   // --list: 설정된 워처 목록만 출력
   if (args.list) {
@@ -76,7 +86,7 @@ async function main() {
 
   const tick = async () => {
     try {
-      await runOnce(config, { store, log });
+      await runOnce(config, { store, log, dry: args.dry });
     } catch (e) {
       console.error('[tick 오류]', e.message);
     }

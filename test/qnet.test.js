@@ -126,3 +126,14 @@ test('extractSeats: 비율/중 표기', () => {
   assert.equal(extractSeats('30명 중 28명 접수').available, 2);
   assert.equal(extractSeats('정원 50 접수 50').available, 0);
 });
+
+test('validateConfig: 오류/경고 감지', async () => {
+  const { validateConfig } = await import('../src/validate.js');
+  const bad = validateConfig({ watchers: [{ name: 'x', type: 'contains', url: 'ftp://x' }] });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.errors.some((e) => /url/.test(e)));          // http 아님
+  assert.ok(bad.errors.some((e) => /needle/.test(e)));       // contains needle 없음
+  assert.ok(bad.errors.some((e) => /webhookUrl/.test(e)));   // 웹훅 없음
+  const good = validateConfig({ webhookUrl: 'https://discord.com/api/webhooks/1/abc', watchers: [{ name: 'y', type: 'seats', url: 'https://x' }] });
+  assert.equal(good.ok, true);
+});
