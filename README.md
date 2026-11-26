@@ -1,4 +1,5 @@
 # qnet-seat-alert
+![CI](https://github.com/GigongDohyun/qnet-seat-alert/actions/workflows/ci.yml/badge.svg)
 
 Q-Net(큐넷) 원서접수 **빈자리(잔여석)** 가 생기면 **Discord 로 알려주는** 도구.
 **알림 전용** — 자동 접수/매크로가 아니다. 접수는 사람이 직접 한다. 의존성 없음(Node 내장 `fetch`만).
