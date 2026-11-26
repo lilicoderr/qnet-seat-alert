@@ -14,10 +14,12 @@ import { createStore } from '../src/store.js';
 import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
 
 function parseArgs(argv) {
-  const args = { once: false, config: process.env.QNET_CONFIG || 'config.json' };
+  const args = { once: false, config: process.env.QNET_CONFIG || 'config.json', testWebhook: false, list: false };
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--once') args.once = true;
     else if (argv[i] === '--config') args.config = argv[++i];
+    else if (argv[i] === '--test-webhook') args.testWebhook = true;
+    else if (argv[i] === '--list') args.list = true;
   }
   return args;
 }
@@ -31,6 +33,34 @@ async function main() {
     process.exit(1);
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+  // --list: 설정된 워처 목록만 출력
+  if (args.list) {
+    const all = config.watchers || [];
+    console.log(`워처 ${all.length}개 (설정: ${configPath}):`);
+    for (const w of all) {
+      console.log(`  [${w.enabled === false ? ' ' : 'x'}] ${w.name} · ${w.type} · ${w.alertOn || w.alertWhen || ''} · ${w.url}`);
+    }
+    return;
+  }
+
+  // --test-webhook: 웹훅이 제대로 오는지 테스트 메시지 전송
+  if (args.testWebhook) {
+    const { sendAlert } = await import('../src/discord.js');
+    try {
+      await sendAlert(config.webhookUrl, {
+        title: '🔔 Q-Net 빈자리 알림 — 웹훅 테스트',
+        description: '이 메시지가 보이면 Discord 웹훅이 정상이에요.',
+        color: 0x2b6cb0,
+      }, { username: config.username || 'Q-Net 빈자리 알림' });
+      console.log('✅ 테스트 메시지를 보냈어요. Discord 채널을 확인하세요.');
+    } catch (e) {
+      console.error('❌ 전송 실패:', e.message);
+      process.exit(1);
+    }
+    return;
+  }
+
   const store = createStore(config.statePath);
   const watchers = (config.watchers || []).filter((w) => w.enabled !== false);
   if (watchers.length === 0) {

@@ -38,6 +38,26 @@ export function extractSeats(text) {
       return { available: Math.max(0, capacity - applied), capacity, applied, source: 'cap-applied' };
     }
   }
+
+  // 3) "접수 28 / 정원 30" 또는 "28 / 30" 비율 표기
+  const ratio = t.match(/(?:접수\s*)?([\d,]+)\s*\/\s*(?:정원\s*)?([\d,]+)\s*명?/);
+  if (ratio) {
+    const applied = num(ratio[1]);
+    const capacity = num(ratio[2]);
+    if (capacity !== null && applied !== null && capacity >= applied) {
+      return { available: Math.max(0, capacity - applied), capacity, applied, source: 'ratio' };
+    }
+  }
+
+  // 4) "30명 중 28명 접수"
+  const mid = t.match(/([\d,]+)\s*명?\s*중\s*([\d,]+)\s*명?/);
+  if (mid) {
+    const capacity = num(mid[1]);
+    const applied = num(mid[2]);
+    if (capacity !== null && applied !== null && capacity >= applied) {
+      return { available: Math.max(0, capacity - applied), capacity, applied, source: 'mid' };
+    }
+  }
   return null;
 }
 

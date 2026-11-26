@@ -119,3 +119,10 @@ test('buildAlertPayload: 정원/접수 필드 포함', () => {
   assert.ok(p.fields.some((f) => f.value === '2석'));
   assert.ok(p.fields.some((f) => f.value === '28/30'));
 });
+
+test('extractSeats: 비율/중 표기', () => {
+  assert.equal(extractSeats('접수 28 / 정원 30').available, 2);
+  assert.equal(extractSeats('28 / 30 명').available, 2);
+  assert.equal(extractSeats('30명 중 28명 접수').available, 2);
+  assert.equal(extractSeats('정원 50 접수 50').available, 0);
+});
