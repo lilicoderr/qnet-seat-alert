@@ -2,7 +2,7 @@
 
 import { evaluate } from './extract.js';
 import { decide } from './watcher.js';
-import { sendAlert } from './discord.js';
+import { notifyAll, resolveNotifiers } from './notify.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -65,20 +65,16 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       continue;
     }
     if (r.ok && r.shouldAlert) {
-      const webhook = watcher.webhookUrl || config.webhookUrl;
-      if (webhook) {
-        try {
-          await sendAlert(
-            webhook,
-            buildAlertPayload(watcher, r),
-            { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' },
-          );
-          r.alerted = true;
-        } catch (e) {
-          r.alertError = e.message;
-        }
+      const notifiers = resolveNotifiers(config, watcher);
+      if (notifiers.length > 0) {
+        const { delivered, errors } = await notifyAll(notifiers, buildAlertPayload(watcher, r), {
+          fetchImpl,
+          username: config.username || 'Q-Net 빈자리 알림',
+        });
+        r.alerted = delivered > 0;
+        if (errors.length) r.alertError = errors.join('; ');
       } else {
-        r.alertError = '웹훅 URL 없음';
+        r.alertError = '알림 채널 없음';
       }
     }
     log(formatLine(r));

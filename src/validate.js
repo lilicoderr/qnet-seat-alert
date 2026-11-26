@@ -1,6 +1,7 @@
 // 설정(config) 검증 — 흔한 실수를 미리 잡는다.
 
 import { isWebhookUrl } from './discord.js';
+import { resolveNotifiers, validateNotifier } from './notify.js';
 
 const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex'];
 
@@ -8,12 +9,17 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   const errors = [];
   const warnings = [];
 
+  for (const [i, n] of (config.notifiers || []).entries()) {
+    const e = validateNotifier(n);
+    if (e) errors.push(`notifiers[${i}]: ${e}`);
+  }
+  if (config.webhookUrl && !isWebhookUrl(config.webhookUrl)) {
+    errors.push('webhookUrl 이 Discord 웹훅 형식이 아닙니다. (https://discord.com/api/webhooks/...)');
+  }
   if (requireWebhook) {
-    if (!config.webhookUrl && !(config.watchers || []).every((w) => w.webhookUrl)) {
-      if (!config.webhookUrl) errors.push('webhookUrl 이 없습니다. (워처마다 webhookUrl 을 두지 않았다면 최상위에 필요)');
-    }
-    if (config.webhookUrl && !isWebhookUrl(config.webhookUrl)) {
-      errors.push('webhookUrl 이 Discord 웹훅 형식이 아닙니다. (https://discord.com/api/webhooks/...)');
+    const everyWatcherHasOwn = (config.watchers || []).length > 0 && config.watchers.every((w) => w.webhookUrl);
+    if (!everyWatcherHasOwn && resolveNotifiers(config).length === 0) {
+      errors.push('알림 채널이 없습니다. webhookUrl / notifiers 를 설정하거나 QNET_DISCORD_WEBHOOK 등 환경변수를 지정하세요.');
     }
   }
 

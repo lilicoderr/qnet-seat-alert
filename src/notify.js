@@ -1,0 +1,145 @@
+// 알림 채널 추상화: Discord / Slack / Telegram / 일반 웹훅. 모두 "알림 전용".
+// 비밀값(웹훅 URL·봇 토큰)은 설정 파일 대신 환경변수로도 줄 수 있다.
+
+import { isWebhookUrl, sendAlert as sendDiscord } from './discord.js';
+
+const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
+
+export const NOTIFIER_TYPES = ['discord', 'slack', 'telegram', 'webhook'];
+
+export function isSlackWebhook(url) {
+  return /^https:\/\/hooks\.slack\.com\/services\/[\w-]+\/[\w-]+\/[\w-]+/.test(String(url || ''));
+}
+
+export function isHttpsUrl(url) {
+  return /^https:\/\/[^\s]+$/.test(String(url || ''));
+}
+
+// 환경변수에서 알림 채널 목록을 만든다.
+export function notifiersFromEnv(env = process.env) {
+  const out = [];
+  if (env.QNET_DISCORD_WEBHOOK) out.push({ type: 'discord', url: env.QNET_DISCORD_WEBHOOK });
+  if (env.QNET_SLACK_WEBHOOK) out.push({ type: 'slack', url: env.QNET_SLACK_WEBHOOK });
+  if (env.QNET_TELEGRAM_TOKEN && env.QNET_TELEGRAM_CHAT) {
+    out.push({ type: 'telegram', token: env.QNET_TELEGRAM_TOKEN, chatId: env.QNET_TELEGRAM_CHAT });
+  }
+  if (env.QNET_WEBHOOK_URL) out.push({ type: 'webhook', url: env.QNET_WEBHOOK_URL });
+  return out;
+}
+
+// config(+env) → 실제로 쓸 채널 목록. 구버전 webhookUrl 은 discord 로 취급.
+export function resolveNotifiers(config, watcher = {}, env = process.env) {
+  if (watcher.webhookUrl) return [{ type: 'discord', url: watcher.webhookUrl }];
+  const list = [];
+  if (Array.isArray(config.notifiers)) list.push(...config.notifiers);
+  if (config.webhookUrl) list.push({ type: 'discord', url: config.webhookUrl });
+  list.push(...notifiersFromEnv(env));
+  return list;
+}
+
+export function validateNotifier(n) {
+  if (!n || !NOTIFIER_TYPES.includes(n.type)) return `알 수 없는 notifier type '${n?.type}' (${NOTIFIER_TYPES.join('/')})`;
+  if (n.type === 'discord' && !isWebhookUrl(n.url)) return 'discord: 웹훅 URL 형식이 올바르지 않습니다.';
+  if (n.type === 'slack' && !isSlackWebhook(n.url)) return 'slack: https://hooks.slack.com/services/... 형식이어야 합니다.';
+  if (n.type === 'webhook' && !isHttpsUrl(n.url)) return 'webhook: https:// URL 이 필요합니다.';
+  if (n.type === 'telegram' && (!n.token || !n.chatId)) return 'telegram: token 과 chatId 가 필요합니다.';
+  return null;
+}
+
+function plainText(payload) {
+  const lines = [payload.title, payload.description];
+  for (const f of payload.fields || []) lines.push(`${f.name}: ${f.value}`);
+  if (payload.url) lines.push(payload.url);
+  return lines.filter(Boolean).join('\n');
+}
+
+async function postJson(fetchImpl, url, body) {
+  const res = await fetchImpl(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`전송 실패 (${res.status}) ${text.slice(0, 200)}`);
+  }
+}
+
+export function buildSlackBody(payload) {
+  const blocks = [
+    { type: 'header', text: { type: 'plain_text', text: String(payload.title || '알림').slice(0, 150) } },
+  ];
+  if (payload.description) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: String(payload.description).slice(0, 2900) } });
+  }
+  if (payload.fields?.length) {
+    blocks.push({
+      type: 'section',
+      fields: payload.fields.slice(0, 10).map((f) => ({ type: 'mrkdwn', text: `*${f.name}*\n${f.value}` })),
+    });
+  }
+  if (payload.url) {
+    blocks.push({
+      type: 'actions',
+      elements: [{ type: 'button', text: { type: 'plain_text', text: 'Q-Net 열기' }, url: payload.url }],
+    });
+  }
+  return { text: plainText(payload), blocks };
+}
+
+export function buildTelegramBody(chatId, payload) {
+  return {
+    chat_id: chatId,
+    text: plainText(payload).slice(0, 4000),
+    disable_web_page_preview: false,
+  };
+}
+
+// 채널 1개로 전송. 실패 시 throw.
+export async function sendTo(notifier, payload, { fetchImpl = DEFAULT_FETCH, username } = {}) {
+  const err = validateNotifier(notifier);
+  if (err) throw new Error(err);
+  switch (notifier.type) {
+    case 'discord':
+      return sendDiscord(notifier.url, payload, { fetchImpl, username });
+    case 'slack':
+      return postJson(fetchImpl, notifier.url, buildSlackBody(payload));
+    case 'telegram':
+      return postJson(
+        fetchImpl,
+        `https://api.telegram.org/bot${notifier.token}/sendMessage`,
+        buildTelegramBody(notifier.chatId, payload),
+      );
+    case 'webhook':
+      return postJson(fetchImpl, notifier.url, {
+        source: 'qnet-seat-alert',
+        title: payload.title,
+        description: payload.description,
+        url: payload.url,
+        fields: payload.fields || [],
+        sentAt: new Date().toISOString(),
+      });
+  }
+}
+
+// 모든 채널에 보낸다. 하나라도 성공하면 delivered, 실패는 errors 에 모은다.
+export async function notifyAll(notifiers, payload, opts = {}) {
+  const errors = [];
+  let delivered = 0;
+  for (const n of notifiers) {
+    try {
+      await sendTo(n, payload, opts);
+      delivered++;
+    } catch (e) {
+      // 토큰/URL 이 로그에 새지 않도록 메시지에서 제거
+      errors.push(`${n.type}: ${redact(e.message, n)}`);
+    }
+  }
+  return { delivered, errors };
+}
+
+export function redact(message, n = {}) {
+  let m = String(message);
+  for (const secret of [n.url, n.token]) if (secret) m = m.split(secret).join('***');
+  return m;
+}

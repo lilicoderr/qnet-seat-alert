@@ -54,20 +54,22 @@ async function main() {
     return;
   }
 
-  // --test-webhook: 웹훅이 제대로 오는지 테스트 메시지 전송
+  // --test-webhook: 설정된 모든 알림 채널에 테스트 메시지 전송
   if (args.testWebhook) {
-    const { sendAlert } = await import('../src/discord.js');
-    try {
-      await sendAlert(config.webhookUrl, {
-        title: '🔔 Q-Net 빈자리 알림 — 웹훅 테스트',
-        description: '이 메시지가 보이면 Discord 웹훅이 정상이에요.',
-        color: 0x2b6cb0,
-      }, { username: config.username || 'Q-Net 빈자리 알림' });
-      console.log('✅ 테스트 메시지를 보냈어요. Discord 채널을 확인하세요.');
-    } catch (e) {
-      console.error('❌ 전송 실패:', e.message);
+    const { notifyAll, resolveNotifiers } = await import('../src/notify.js');
+    const notifiers = resolveNotifiers(config);
+    if (notifiers.length === 0) {
+      console.error('❌ 알림 채널이 없습니다.');
       process.exit(1);
     }
+    const { delivered, errors } = await notifyAll(notifiers, {
+      title: '🔔 Q-Net 빈자리 알림 — 테스트',
+      description: '이 메시지가 보이면 알림 채널이 정상이에요.',
+      color: 0x2b6cb0,
+    }, { username: config.username || 'Q-Net 빈자리 알림' });
+    for (const e of errors) console.error(`❌ ${e}`);
+    if (delivered > 0) console.log(`✅ ${delivered}개 채널로 테스트 메시지를 보냈어요.`);
+    if (errors.length) process.exit(1);
     return;
   }
 
