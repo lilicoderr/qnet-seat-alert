@@ -1,17 +1,26 @@
 {
-  "comment": "이 파일을 복사해 config.json 으로 만들고 webhookUrl·watchers 의 url 을 채우세요. config.json 은 커밋 금지(.gitignore).",
-  "webhookUrl": "https://discord.com/api/webhooks/000000000000000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+  "comment": "복사해서 config.json 으로. 비밀값(웹훅/토큰)은 .env 의 QNET_* 환경변수를 권장합니다. config.json 은 커밋 금지.",
+  "notifiers": [
+    { "type": "discord", "url": "https://discord.com/api/webhooks/000000000000000000/XXXXXXXXXXXXXXXXXXXXXXXX" },
+    { "type": "slack", "url": "https://hooks.slack.com/services/T000/B000/XXXX" },
+    { "type": "telegram", "token": "123456:ABC", "chatId": "123456789" }
+  ],
   "username": "Q-Net 빈자리 알림",
   "intervalMin": 5,
   "politeDelayMs": 1500,
+  "failureAlertAfter": 5,
   "statePath": "state.json",
   "watchers": [
     {
-      "name": "전기기능사 필기 OO지역",
+      "name": "전기기능사 서울 12월",
       "type": "seats",
       "alertOn": "open",
       "url": "https://www.q-net.or.kr/ (실제 열람 가능한 접수현황 페이지/엔드포인트 URL)",
       "linkUrl": "https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301",
+      "include": ["서울", "전기기능사"],
+      "exclude": ["마감"],
+      "dateFrom": "2026-12-01",
+      "dateTo": "2026-12-31",
       "mention": ""
     },
     {

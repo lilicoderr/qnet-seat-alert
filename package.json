@@ -1,14 +1,33 @@
 {
   "name": "qnet-seat-alert",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Q-Net 원서접수 빈자리(잔여석) 변화를 감지해 Discord 로 알림 (알림 전용, 자동접수 없음)",
-  "bin": { "qnet-alert": "bin/qnet-alert.js" },
+  "description": "Q-Net 원서접수 빈자리(잔여석) 변화를 감지해 Discord/Slack/Telegram 으로 알림 (알림 전용, 자동접수 없음)",
+  "bin": {
+    "qnet-alert": "bin/qnet-alert.js"
+  },
   "scripts": {
     "start": "node bin/qnet-alert.js",
     "once": "node bin/qnet-alert.js --once",
-    "test": "node --test"
+    "test": "node --test",
+    "dry": "node bin/qnet-alert.js --dry"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lilicoderr/qnet-seat-alert.git"
+  },
+  "keywords": [
+    "qnet",
+    "큐넷",
+    "알림",
+    "discord",
+    "slack",
+    "telegram",
+    "seat-alert"
+  ],
+  "license": "MIT"
 }

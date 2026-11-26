@@ -1,90 +1,147 @@
-# qnet-seat-alert
-![CI](https://github.com/GigongDohyun/qnet-seat-alert/actions/workflows/ci.yml/badge.svg)
+<div align="center">
 
-Q-Net(큐넷) 원서접수 **빈자리(잔여석)** 가 생기면 **Discord 로 알려주는** 도구.
-**알림 전용** — 자동 접수/매크로가 아니다. 접수는 사람이 직접 한다. 의존성 없음(Node 내장 `fetch`만).
+# 🔔 qnet-seat-alert
 
-> ⚠️ **주의**: Q-Net 자동 조회는 사이트 이용약관에 저촉될 수 있습니다. **개인 확인 용도로만**, 폴링 간격을 넉넉히(3~10분) 두고 쓰세요. 로그인/자동접수는 하지 않습니다. 실제 잔여석 열람에 로그인이 필요한 페이지라면, 열람 가능한 URL 을 `watchers[].url` 에 넣어야 동작합니다.
+**Q-Net 원서접수 빈자리가 열리면 Discord · Slack · Telegram 으로 알려주는 알림 전용 감시기**
 
-## 동작
+[![CI](https://github.com/lilicoderr/qnet-seat-alert/actions/workflows/ci.yml/badge.svg)](https://github.com/lilicoderr/qnet-seat-alert/actions/workflows/ci.yml)
+![node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
+![deps](https://img.shields.io/badge/dependencies-0-brightgreen)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-1. 설정한 **워처(watcher)** 들을 주기적으로 가져온다.
-2. 페이지/JSON 에서 **잔여석 신호**를 뽑는다(정원−접수인원, "잔여 N석", 특정 문구 등장 등).
-3. 이전 상태와 비교해 **빈자리가 열리면** Discord 웹훅으로 알림. **중복 알림은 억제**(한 번 열리면 한 번만).
+<img src="docs/demo.svg" alt="알림 예시" width="720">
 
-## 설치 · 실행
+</div>
+
+> **알림 전용입니다.** 자동 접수·로그인·매크로는 하지 않습니다. 접수는 사람이 직접 합니다.
+> Q-Net 자동 조회는 이용약관에 저촉될 수 있으니 **개인 확인 용도로만**, 폴링 간격을 넉넉히(3~10분) 두세요.
+
+## 특징
+
+- **의존성 0** — Node 20+ 내장 `fetch` 만 사용
+- **멀티 채널** — Discord, Slack, Telegram, 일반 웹훅을 동시에
+- **정밀 필터** — `include` / `exclude` / 날짜 범위로 "내가 볼 시험 행"만 감시
+- **중복 알림 억제** — 0석→1석 이상으로 *열릴 때* 한 번만 (`open` / `increase` / `change` / `available`)
+- **튼튼한 폴링** — 5xx·429·네트워크 오류는 지수 백오프, 연속 실패 시 "감시 오류" 알림
+- **비밀값 분리** — 웹훅/토큰은 `.env` 환경변수로, 로그에서는 자동 마스킹
+- **운영 친화적** — `--dry`, `--json` 구조화 로그, Docker, Actions 스케줄 예시
+
+## 빠른 시작
 
 ```bash
-cp config.example.json config.json   # webhookUrl 과 watchers[].url 채우기
-node bin/qnet-alert.js --once         # 1회 검사
-node bin/qnet-alert.js                # intervalMin 간격 반복 (기본 5분, 최소 2분)
+git clone https://github.com/lilicoderr/qnet-seat-alert && cd qnet-seat-alert
+cp config.example.json config.json   # 감시할 watcher 수정
+cp .env.example .env                 # QNET_DISCORD_WEBHOOK 등 채우기
+
+node bin/qnet-alert.js --dry           # 알림 없이 추출 결과만 확인
+node bin/qnet-alert.js --test-webhook  # 모든 채널에 테스트 메시지
+node bin/qnet-alert.js                 # intervalMin 마다 반복 (기본 5분, 최소 2분)
 ```
 
-## 설정 (`config.json`)
+실행 예:
 
-```json
-{
-  "webhookUrl": "https://discord.com/api/webhooks/.../...",
-  "intervalMin": 5,
-  "statePath": "state.json",
-  "watchers": [
-    {
-      "name": "전기기능사 필기 OO지역",
-      "type": "seats",          // seats | jsonseats | contains | regex
-      "alertOn": "open",        // open(0→>0, 기본) | increase | change | available
-      "url": "https://www.q-net.or.kr/... (열람 가능한 접수현황 URL)",
-      "linkUrl": "https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301"
-    }
-  ]
-}
+```text
+7:48:12 [전기기능사 서울 12/05] signal=0 (빈자리 0 (이전 미확인)) ·
+7:48:12 [전기기능사 서울 12/05] signal=3 (빈자리 열림: 3석 (이전 0)) 📨 알림보냄
 ```
 
-- `config.json`, `state.json` 은 **비밀/로컬 파일** → `.gitignore` 로 커밋 제외.
-- `webhookUrl` 은 Discord 채널 설정 → 연동 → 웹훅에서 발급.
+### Docker
 
-### 워처 타입
+```bash
+mkdir data && cp config.example.json data/config.json
+docker compose up -d --build        # .env 의 QNET_* 값을 주입
+```
 
-| type | 설명 |
+서버가 없다면 [`scheduled-example.yml.disabled`](.github/workflows/scheduled-example.yml.disabled) 를 참고해 GitHub Actions 크론으로 돌릴 수도 있습니다.
+
+## CLI
+
+| 옵션 | 설명 |
 |---|---|
-| `seats` | HTML 텍스트에서 "정원/접수인원" 또는 "잔여 N석" 을 찾아 빈자리 계산 |
-| `jsonseats` | JSON 응답의 정원/접수/잔여 필드로 계산 (`fields` 로 키 지정 가능) |
-| `contains` | 특정 문구(예: `접수하기`) 등장/사라짐 감지 |
-| `regex` | 정규식 1번 그룹 값 변화 감지 |
+| `--once` | 1회 검사 후 종료 |
+| `--dry` | 알림을 보내지 않고 추출·판단만 출력 (웹훅 불필요) |
+| `--list` | 설정된 watcher 목록 |
+| `--test-webhook` | 설정된 모든 알림 채널에 테스트 전송 |
+| `--json` | 한 줄 JSON 로그 (로그 수집기용) |
+| `--quiet` | 변화·오류가 없는 줄은 출력 생략 |
+| `--config <path>` | 설정 파일 (기본 `config.json`, 또는 `$QNET_CONFIG`) |
 
-### 알림 조건(seats)
+## 설정
 
-| alertOn | 알림 시점 |
+### 알림 채널
+
+환경변수(권장) 또는 `config.json` 의 `notifiers` 로 지정합니다.
+
+| 채널 | 환경변수 | `notifiers` 항목 |
+|---|---|---|
+| Discord | `QNET_DISCORD_WEBHOOK` | `{ "type": "discord", "url": "…" }` |
+| Slack | `QNET_SLACK_WEBHOOK` | `{ "type": "slack", "url": "…" }` |
+| Telegram | `QNET_TELEGRAM_TOKEN`, `QNET_TELEGRAM_CHAT` | `{ "type": "telegram", "token": "…", "chatId": "…" }` |
+| 일반 웹훅 | `QNET_WEBHOOK_URL` | `{ "type": "webhook", "url": "https://…" }` |
+
+> 구버전의 최상위 `webhookUrl` 도 그대로 동작합니다(Discord). 워처별 `webhookUrl` 은 해당 워처만 그 채널로 보냅니다.
+
+### 최상위 옵션
+
+| 키 | 기본 | 설명 |
+|---|---|---|
+| `intervalMin` | `5` | 폴링 간격(분), 최소 2 |
+| `politeDelayMs` | – | 워처 사이 대기(ms) |
+| `failureAlertAfter` | `5` | 연속 실패 N회에 "감시 오류" 알림 1회 (`0` 이면 끔) |
+| `statePath` | `state.json` | 마지막 신호 저장 파일 (`$QNET_STATE`) |
+
+### Watcher
+
+| 키 | 설명 |
 |---|---|
-| `open` | 빈자리가 0(또는 미확인)에서 **1석 이상으로 열릴 때** (기본) |
-| `increase` | 빈자리가 **늘어날 때마다** |
-| `change` | 빈자리 수가 **바뀔 때마다** |
-| `available` | 폴링 시 빈자리가 있으면 (주의: 매번 알림) |
+| `name`, `id` | 표시 이름 / 상태 저장용 식별자 |
+| `url`, `linkUrl` | 가져올 URL / 알림에 붙일 링크 |
+| `type` | `seats` · `jsonseats` · `contains` · `regex` |
+| `alertOn` | `open`(기본) · `increase` · `change` · `available` |
+| `include` / `exclude` | 행 필터 — 모든 `include` 키워드를 포함하고 `exclude` 는 없는 행만 사용 |
+| `dateFrom` / `dateTo` | 행의 날짜(`2026.12.05`, `2026-12-05`, `2026년 12월 5일`)가 `YYYY-MM-DD` 범위일 때만 |
+| `mention` | 알림 본문에 넣을 멘션 |
+| `enabled` | `false` 면 건너뜀 |
 
-## 구조
+| type | 동작 |
+|---|---|
+| `seats` | HTML 텍스트에서 "정원/접수인원", "잔여 N석", "28/30", "30명 중 28명" 을 찾아 계산 |
+| `jsonseats` | JSON 응답의 정원/접수/잔여 필드로 계산 (`fields` 로 키 지정) |
+| `contains` | 문구(`needle`) 등장/사라짐 감지 (`alertWhen`: present/absent/change) |
+| `regex` | `pattern` 1번 그룹 값 변화 감지 |
 
+## 동작 방식
+
+```text
+poll ─▶ fetch(+backoff) ─▶ row filter ─▶ extract ─▶ decide(prev, cur) ─▶ notify[Discord|Slack|Telegram|Webhook]
+                                                          ▲
+                                                     state.json (중복 억제)
 ```
-qnet-seat-alert/
-├─ bin/qnet-alert.js   CLI (--once / 반복)
-├─ src/
-│  ├─ extract.js       잔여석/문구/정규식 추출
-│  ├─ watcher.js       이전↔현재 비교 → 알림 여부
-│  ├─ discord.js       웹훅 전송(임베드)
-│  ├─ store.js         마지막 신호 저장(중복 억제)
-│  ├─ engine.js        폴링 1회 실행
-│  └─ qnet.js          Q-Net 프리셋/주의사항
-└─ test/               node:test (13개)
+
+```text
+bin/qnet-alert.js   CLI
+src/engine.js       폴링 1회: 가져오기·재시도·알림
+src/filter.js       include/exclude/날짜 행 필터
+src/extract.js      잔여석·문구·정규식 추출
+src/watcher.js      이전↔현재 비교 → 알림 여부
+src/notify.js       Discord/Slack/Telegram/웹훅 채널
+src/discord.js      Discord 임베드 + 429 재시도
+src/store.js        마지막 신호 저장
+src/log.js          텍스트/JSON 로그
+src/env.js          .env 로더
+src/validate.js     설정 검증
 ```
 
 ## 테스트
 
 ```bash
-npm test
+npm test      # node --test — 네트워크 없이 fetch 주입으로 검증
 ```
-
-네트워크 없이 검증(`fetch` 주입): 추출·비교·중복 억제·웹훅 페이로드.
-실제 CLI 는 로컬 페이지 → 추출 → 디스코드 POST 까지 end-to-end 로 확인했다.
 
 ## 한계
 
-- Q-Net 의 정확한 잔여석 엔드포인트는 로그인/세션이 필요하거나 구조가 자주 바뀐다. 이 도구는 **열람 가능한 URL 과 추출 규칙을 사용자가 지정**하는 범용 감시기다.
-- 자동 접수는 하지 않는다(의도적). 알림을 받으면 직접 접수한다.
+Q-Net 의 정확한 잔여석 엔드포인트는 로그인·세션이 필요하거나 구조가 바뀔 수 있습니다. 이 도구는 **열람 가능한 URL 과 추출 규칙을 사용자가 지정**하는 범용 감시기이며, 자동 접수는 의도적으로 지원하지 않습니다.
+
+## 기여
+
+[CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) · [MIT License](LICENSE)
