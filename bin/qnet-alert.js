@@ -12,6 +12,8 @@ import path from 'node:path';
 import { runOnce, sleep } from '../src/engine.js';
 import { createStore } from '../src/store.js';
 import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
+import { loadEnvFile } from '../src/env.js';
+import { createLogger } from '../src/log.js';
 
 function parseArgs(argv) {
   const args = { once: false, config: process.env.QNET_CONFIG || 'config.json', testWebhook: false, list: false };
@@ -20,12 +22,15 @@ function parseArgs(argv) {
     else if (argv[i] === '--config') args.config = argv[++i];
     else if (argv[i] === '--test-webhook') args.testWebhook = true;
     else if (argv[i] === '--list') args.list = true;
+    else if (argv[i] === '--json') args.json = true;
+    else if (argv[i] === '--quiet') args.quiet = true;
     else if (argv[i] === '--dry') { args.dry = true; args.once = true; }
   }
   return args;
 }
 
 async function main() {
+  loadEnvFile(process.env.QNET_ENV || '.env');
   const args = parseArgs(process.argv);
   const configPath = path.resolve(args.config);
   if (!fs.existsSync(configPath)) {
@@ -84,11 +89,11 @@ async function main() {
   console.error(`[qnet-alert] 워처 ${watchers.length}개, 간격 ${intervalMin}분${args.once ? ' (1회)' : ''}`);
   console.error(`[주의] ${DISCLAIMER}`);
 
-  const log = (line) => console.log(`${new Date().toLocaleTimeString('ko-KR')} ${line}`);
+  const logger = createLogger({ json: args.json, quiet: args.quiet });
 
   const tick = async () => {
     try {
-      await runOnce(config, { store, log, dry: args.dry });
+      await runOnce(config, { store, logger, dry: args.dry });
     } catch (e) {
       console.error('[tick 오류]', e.message);
     }

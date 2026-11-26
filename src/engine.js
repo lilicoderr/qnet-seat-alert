@@ -3,6 +3,7 @@
 import { evaluate } from './extract.js';
 import { decide } from './watcher.js';
 import { filterRows } from './filter.js';
+import { formatLine } from './log.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
@@ -83,13 +84,14 @@ export async function runWatcher(
 }
 
 // 전체 설정 1회 실행. 알림까지 보낸다.
-export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = () => {}, dry = false } = {}) {
+export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = () => {}, logger, dry = false, ...runOpts } = {}) {
+  const emit = (r, extra = '') => (logger ? logger.result(r) : log(`${formatLine(r)}${extra}`));
   const results = [];
   for (const watcher of config.watchers || []) {
     if (watcher.enabled === false) continue;
-    const r = await runWatcher(watcher, { store, fetchImpl });
+    const r = await runWatcher(watcher, { store, fetchImpl, ...runOpts });
     if (dry) {
-      log(`${formatLine(r)}${r.shouldAlert ? ' (dry: 알림 생략)' : ''}`);
+      emit(r, r.shouldAlert ? ' (dry: 알림 생략)' : '');
       results.push(r);
       if (config.politeDelayMs) await sleep(config.politeDelayMs);
       continue;
@@ -107,7 +109,21 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
         r.alertError = '알림 채널 없음';
       }
     }
-    log(formatLine(r));
+    // 연속 실패가 임계치에 닿으면 한 번만 "감시 이상" 알림
+    const limit = config.failureAlertAfter ?? 5;
+    if (!r.ok && limit > 0 && r.failures === limit) {
+      const notifiers = resolveNotifiers(config, watcher);
+      if (notifiers.length) {
+        const { delivered } = await notifyAll(notifiers, {
+          title: `⚠️ ${watcher.name || 'Q-Net'} 감시 오류 지속`,
+          description: `${r.failures}회 연속 실패: ${r.error}`,
+          url: watcher.linkUrl || watcher.url,
+          color: 0xe03131,
+        }, { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+        r.alerted = delivered > 0;
+      }
+    }
+    emit(r);
     results.push(r);
     // 서버 부담을 줄이기 위한 짧은 간격
     if (config.politeDelayMs) await sleep(config.politeDelayMs);
@@ -131,12 +147,6 @@ export function buildAlertPayload(watcher, r) {
     fields,
     content: watcher.mention || '',
   };
-}
-
-function formatLine(r) {
-  const flag = r.alerted ? '📨 알림보냄' : r.shouldAlert ? '⚠️ 알림실패' : '·';
-  const sig = r.ok ? `signal=${r.signal}` : `오류: ${r.error}`;
-  return `[${r.name || r.id}] ${sig} ${r.reason ? `(${r.reason})` : ''} ${flag}${r.alertError ? ` [${r.alertError}]` : ''}`;
 }
 
 export function sleep(ms) {
