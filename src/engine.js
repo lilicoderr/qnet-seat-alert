@@ -91,7 +91,8 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     if (watcher.enabled === false) continue;
     const r = await runWatcher(watcher, { store, fetchImpl, ...runOpts });
     if (dry) {
-      emit(r, r.shouldAlert ? ' (dry: 알림 생략)' : '');
+      r.dry = true;
+      emit(r);
       results.push(r);
       if (config.politeDelayMs) await sleep(config.politeDelayMs);
       continue;

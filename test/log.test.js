@@ -44,3 +44,9 @@ test('runOnce: 연속 실패가 임계치에 닿으면 감시 이상 알림 1회
   assert.equal(sent.length, 1);
   assert.match(sent[0], /연속 실패/);
 });
+
+test('formatLine: dry-run 이면 알림실패가 아니라 전송 생략으로 표시', async () => {
+  const { formatLine } = await import('../src/log.js');
+  assert.match(formatLine({ ok: true, name: 'A', signal: 3, shouldAlert: true, dry: true }), /dry-run/);
+  assert.match(formatLine({ ok: true, name: 'A', signal: 3, shouldAlert: true }), /알림실패/);
+});

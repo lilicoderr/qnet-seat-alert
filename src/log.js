@@ -14,6 +14,7 @@ export function createLogger({ json = false, quiet = false, out = console.log, n
           available: r.available ?? null,
           shouldAlert: !!r.shouldAlert,
           alerted: !!r.alerted,
+          dry: !!r.dry,
           reason: r.reason ?? null,
           error: r.error ?? r.alertError ?? null,
           failures: r.failures ?? 0,
@@ -30,7 +31,7 @@ export function createLogger({ json = false, quiet = false, out = console.log, n
 }
 
 export function formatLine(r) {
-  const flag = r.alerted ? '📨 알림보냄' : r.shouldAlert ? '⚠️ 알림실패' : '·';
+  const flag = r.alerted ? '📨 알림보냄' : r.shouldAlert ? (r.dry ? '🔕 알림 대상(dry-run: 전송 생략)' : '⚠️ 알림실패') : '·';
   const sig = r.ok ? `signal=${r.signal}` : `오류: ${r.error}`;
   return `[${r.name || r.id}] ${sig} ${r.reason ? `(${r.reason})` : ''} ${flag}${r.alertError ? ` [${r.alertError}]` : ''}`;
 }
