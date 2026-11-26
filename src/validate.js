@@ -36,6 +36,13 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
     if (w.type === 'contains' && !w.needle) errors.push(`${where}: contains 타입은 needle 이 필요합니다.`);
     if (w.type === 'regex' && !w.pattern) errors.push(`${where}: regex 타입은 pattern 이 필요합니다.`);
     if (w.webhookUrl && !isWebhookUrl(w.webhookUrl)) errors.push(`${where}: webhookUrl 형식이 올바르지 않습니다.`);
+    for (const k of ['include', 'exclude']) {
+      if (w[k] != null && !Array.isArray(w[k])) errors.push(`${where}: ${k} 는 문자열 배열이어야 합니다.`);
+    }
+    for (const k of ['dateFrom', 'dateTo']) {
+      if (w[k] != null && !/^\d{4}-\d{2}-\d{2}$/.test(w[k])) errors.push(`${where}: ${k} 는 YYYY-MM-DD 형식이어야 합니다.`);
+    }
+    if (w.dateFrom && w.dateTo && w.dateFrom > w.dateTo) errors.push(`${where}: dateFrom 이 dateTo 보다 늦습니다.`);
     const key = w.id || w.name || w.url;
     if (ids.has(key)) warnings.push(`${where}: 같은 식별자(${key})가 중복됩니다. id 를 지정하세요.`);
     ids.add(key);

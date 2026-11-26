@@ -1,0 +1,11 @@
+# docker compose up -d --build
+# ./data/config.json 을 만들어 두세요 (config.example.json 복사). 비밀값은 .env 로 주입됩니다.
+services:
+  qnet-alert:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    command: ["--json", "--quiet"]

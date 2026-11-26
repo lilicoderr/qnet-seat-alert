@@ -64,3 +64,14 @@ test('runWatcher: 계속 실패하면 failures 누적, 성공하면 초기화', 
   await runWatcher(w, { ...opts, fetchImpl: async () => new Response('잔여 1석') });
   assert.equal(store.get('c').failures, 0);
 });
+
+import { validateConfig } from '../src/validate.js';
+
+test('validateConfig: 필터 필드 검증', () => {
+  const base = { webhookUrl: 'https://discord.com/api/webhooks/1/a' };
+  const bad = validateConfig({ ...base, watchers: [{ name: 'x', type: 'seats', url: 'https://a.test', include: '서울', dateFrom: '2026/12/01', dateTo: '2026-01-01' }] });
+  assert.equal(bad.ok, false);
+  assert.equal(bad.errors.length, 3);
+  const ok = validateConfig({ ...base, watchers: [{ name: 'x', type: 'seats', url: 'https://a.test', include: ['서울'], dateFrom: '2026-12-01' }] });
+  assert.equal(ok.ok, true);
+});
