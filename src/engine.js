@@ -2,6 +2,7 @@
 
 import { evaluate } from './extract.js';
 import { decide } from './watcher.js';
+import { filterRows } from './filter.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
@@ -9,34 +10,63 @@ const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 const POLITE_UA =
   'qnet-seat-alert/1.0 (personal use; polling respectfully)';
 
+// 일시적 오류(네트워크·5xx·429)는 지수 백오프로 재시도한다.
+export function backoffMs(attempt, baseMs = 1000, maxMs = 30000) {
+  return Math.min(maxMs, baseMs * 2 ** attempt);
+}
+
+async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, sleepImpl }) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetchImpl(watcher.url, {
+        method: watcher.method || 'GET',
+        headers: { 'User-Agent': POLITE_UA, Accept: '*/*', ...(watcher.headers || {}) },
+        body: watcher.body,
+        signal: ctrl.signal,
+      });
+      const retryable = res.status === 429 || res.status >= 500;
+      if (!retryable || attempt === retries) return { status: res.status, text: await res.text(), attempts: attempt + 1 };
+      lastErr = new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+      if (attempt === retries) break;
+    } finally {
+      clearTimeout(timer);
+    }
+    await sleepImpl(backoffMs(attempt, baseMs));
+  }
+  throw lastErr;
+}
+
 // 워처 하나를 가져와 평가/비교. 네트워크 주입 가능.
-export async function runWatcher(watcher, { store, fetchImpl = DEFAULT_FETCH, timeoutMs = 15000 } = {}) {
+export async function runWatcher(
+  watcher,
+  { store, fetchImpl = DEFAULT_FETCH, timeoutMs = 15000, retries = 2, backoffBaseMs = 1000, sleepImpl = sleep } = {},
+) {
   const id = watcher.id || watcher.name || watcher.url;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let text = '';
   let httpStatus = 0;
   try {
-    const res = await fetchImpl(watcher.url, {
-      method: watcher.method || 'GET',
-      headers: { 'User-Agent': POLITE_UA, Accept: '*/*', ...(watcher.headers || {}) },
-      body: watcher.body,
-      signal: ctrl.signal,
-    });
-    httpStatus = res.status;
-    text = await res.text();
+    const got = await fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs: backoffBaseMs, sleepImpl });
+    text = got.text;
+    httpStatus = got.status;
   } catch (e) {
-    clearTimeout(timer);
-    return { id, name: watcher.name, ok: false, error: e.message, alerted: false };
+    const prev = store?.get(id);
+    const failures = (prev?.failures || 0) + 1;
+    store?.set(id, { ...(prev || {}), failures });
+    return { id, name: watcher.name, ok: false, error: e.message, failures, alerted: false };
   }
-  clearTimeout(timer);
 
+  if (watcher.type !== 'jsonseats') text = filterRows(text, watcher).text;
   const cur = evaluate(watcher, text);
   const prev = store?.get(id);
   const verdict = decide(prev, cur, watcher);
 
   // 현재 신호 저장 (항상 최신으로)
-  store?.set(id, { signal: cur.signal, kind: cur.kind });
+  store?.set(id, { signal: cur.signal, kind: cur.kind, failures: 0 });
 
   return {
     id,
