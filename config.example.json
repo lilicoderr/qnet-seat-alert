@@ -9,6 +9,11 @@
   "intervalMin": 5,
   "politeDelayMs": 1500,
   "failureAlertAfter": 5,
+  "heartbeatHours": 12,
+  "templates": {
+    "title": "🎯 {name} — {available}석",
+    "description": "{reason} ({applied}/{capacity})"
+  },
   "statePath": "state.json",
   "watchers": [
     {
