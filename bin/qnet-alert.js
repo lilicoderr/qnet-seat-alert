@@ -15,6 +15,7 @@ import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
 import { loadEnvFile } from '../src/env.js';
 import { createLogger } from '../src/log.js';
 import { maybeHeartbeat } from '../src/heartbeat.js';
+import { createMetrics, startMetricsServer } from '../src/metrics.js';
 
 function parseArgs(argv) {
   const args = { once: false, config: process.env.QNET_CONFIG || 'config.json', testWebhook: false, list: false };
@@ -25,6 +26,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--list') args.list = true;
     else if (argv[i] === '--json') args.json = true;
     else if (argv[i] === '--quiet') args.quiet = true;
+    else if (argv[i] === '--metrics-port') args.metricsPort = Number(argv[++i]);
     else if (argv[i] === '--dry') { args.dry = true; args.once = true; }
   }
   return args;
@@ -92,10 +94,22 @@ async function main() {
 
   const logger = createLogger({ json: args.json, quiet: args.quiet });
 
+  const metrics = createMetrics();
+  const metricsPort = args.metricsPort || config.metricsPort;
+  if (metricsPort && !args.once) {
+    try {
+      await startMetricsServer(metrics, { port: metricsPort, host: config.metricsHost });
+      console.error(`[metrics] http://${config.metricsHost || '127.0.0.1'}:${metricsPort}/metrics`);
+    } catch (e) {
+      console.error(`[metrics] 서버 시작 실패: ${e.message}`);
+    }
+  }
+
   const startedAt = Date.now();
   const tick = async () => {
     try {
       const results = await runOnce(config, { store, logger, dry: args.dry });
+      metrics.record(results);
       if (!args.dry) {
         const hb = await maybeHeartbeat(config, { store, results, startedAt });
         if (hb === 'sent') logger.info('💓 하트비트 전송');
