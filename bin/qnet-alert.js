@@ -48,6 +48,7 @@ async function main() {
   // 하위 명령: 이름 -> [모듈, 함수]. 숫자를 돌려주면 종료 코드로 쓴다.
   const SUBCOMMANDS = {
     dashboard: ['../src/dashboard-cmd.js', 'runDashboard'],
+    doctor: ['../src/doctor-cmd.js', 'runDoctor'],
   };
   if (SUBCOMMANDS[process.argv[2]]) {
     loadEnvFile(process.env.QNET_ENV || '.env');
