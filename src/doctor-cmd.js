@@ -1,7 +1,9 @@
 // `qnet-alert doctor [--config f] [--offline]` — 문제가 있으면 종료 코드 1.
 import path from 'node:path';
-import { loadConfigFile } from './cli-util.js';
+import fs from 'node:fs';
+import { loadConfigFile, flagValue } from './cli-util.js';
 import { diagnose, formatReport } from './doctor.js';
+import { checkFixture } from './fixture-check.js';
 
 export async function runDoctor(argv, { out = console.log } = {}) {
   const { file, config } = loadConfigFile(argv);
@@ -9,7 +11,11 @@ export async function runDoctor(argv, { out = console.log } = {}) {
     out(`[FAIL] config file not found: ${file}\nRun "qnet-alert init" to create one.`);
     return 1;
   }
-  const items = await diagnose(config, { network: !argv.includes('--offline'), cwd: path.dirname(file) });
+  const fixture = flagValue(argv, '--fixture');
+  const items = await diagnose(config, { network: !argv.includes('--offline') && !fixture, cwd: path.dirname(file) });
+  if (fixture) {
+    try { items.push(...checkFixture(config, fs.readFileSync(fixture, 'utf8'))); } catch (e) { items.push({ level: 'fail', msg: `fixture: ${e.message}` }); }
+  }
   out(formatReport(items));
   return items.some((i) => i.level === 'fail') ? 1 : 0;
 }

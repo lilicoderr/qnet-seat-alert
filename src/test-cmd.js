@@ -1,7 +1,10 @@
 // `qnet-alert test [--channel discord|slack|telegram|...|type#N] [--dry] [--config f]`
 // 선택한 채널로만 테스트 알림을 보낸다. 출력에는 비밀값이 나오지 않는다.
 import path from 'node:path';
+import fs from 'node:fs';
 import { flagValue, loadConfigFile } from './cli-util.js';
+import { checkFixture } from './fixture-check.js';
+import { formatReport } from './doctor.js';
 import { resolveNotifiers, sendTo } from './notify.js';
 import { loadPlugins } from './plugins.js';
 import { describeNotifier } from './doctor.js';
@@ -19,6 +22,12 @@ export function selectChannels(notifiers, spec) {
 export async function runTest(argv, { out = console.log, fetchImpl, env = process.env } = {}) {
   const { file, config } = loadConfigFile(argv);
   const cfg = config || {};
+  const fixture = flagValue(argv, '--fixture');
+  if (fixture) { // 오프라인: 알림은 보내지 않고 watcher 를 저장된 페이지에 적용해 본다
+    const items = checkFixture(cfg, fs.readFileSync(fixture, 'utf8'));
+    out(formatReport(items));
+    return items.some((i) => i.level === 'fail') ? 1 : 0;
+  }
   if (cfg.plugins?.length) await loadPlugins(cfg.plugins, { cwd: path.dirname(file) });
   const all = resolveNotifiers(cfg, {}, env);
   const spec = flagValue(argv, '--channel');

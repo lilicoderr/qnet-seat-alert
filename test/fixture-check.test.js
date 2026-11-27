@@ -1,0 +1,40 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { checkFixture } from '../src/fixture-check.js';
+import { runDoctor } from '../src/doctor-cmd.js';
+import { runTest } from '../src/test-cmd.js';
+import { real } from './helpers/real.js';
+
+const FIX = fileURLToPath(new URL('./fixtures/real/rcv00301-2026-11-27.html', import.meta.url));
+const cfg = { watchers: [{ name: '기능사 필기', type: 'newrows', pattern: '기능사.*필기', url: 'https://example.test/' }] };
+
+test('checkFixture: 실제 목록에서 표/신호를 보고', () => {
+  const items = checkFixture(cfg, real('rcv00301-2026-11-27.html'), { now: Date.parse('2026-11-27T06:03:00Z') });
+  assert.ok(items.every((i) => i.level !== 'fail'));
+  const text = items.map((i) => i.msg).join('\n');
+  assert.match(text, /0 matching entries/);
+  assert.match(text, /응시시험 \| 접수기간 \(header: 2026-11-27 15:03 KST\)/);
+  assert.match(text, /2026년 상시 기능사 107회 실기/);
+});
+
+test('checkFixture: 표 없는 페이지는 fail', () => {
+  assert.ok(checkFixture(cfg, '<html>x</html>').some((i) => i.level === 'fail'));
+});
+
+test('doctor/test --fixture: 네트워크·전송 없이 종료코드 0', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-'));
+  const file = path.join(dir, 'config.json');
+  fs.writeFileSync(file, JSON.stringify({ ...cfg, webhookUrl: 'https://discord.com/api/webhooks/123456789012345678/abc-token' }));
+  const lines = [];
+  const noNet = () => { throw new Error('network must not be used'); };
+  const prev = globalThis.fetch; globalThis.fetch = noNet;
+  try {
+    assert.equal(await runDoctor(['--config', file, '--fixture', FIX], { out: (s) => lines.push(s) }), 0);
+    assert.equal(await runTest(['--config', file, '--fixture', FIX], { out: (s) => lines.push(s) }), 0);
+  } finally { globalThis.fetch = prev; }
+  assert.match(lines.join('\n'), /table image would show 2 row/);
+});
