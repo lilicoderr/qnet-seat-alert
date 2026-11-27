@@ -50,6 +50,7 @@ async function main() {
   const SUBCOMMANDS = {
     dashboard: ['../src/dashboard-cmd.js', 'runDashboard'],
     doctor: ['../src/doctor-cmd.js', 'runDoctor'],
+    test: ['../src/test-cmd.js', 'runTest'],
   };
   if (SUBCOMMANDS[process.argv[2]]) {
     loadEnvFile(process.env.QNET_ENV || '.env');

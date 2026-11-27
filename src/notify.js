@@ -4,6 +4,7 @@
 import { isWebhookUrl, sendAlert as sendDiscord, FOOTER_TEXT } from './discord.js';
 import { getPlugin } from './plugins.js';
 import { sendMail } from './smtp.js';
+import { redactAll } from './redact.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -189,7 +190,5 @@ export async function notifyAll(notifiers, payload, opts = {}) {
 }
 
 export function redact(message, n = {}) {
-  let m = String(message);
-  for (const secret of [n.url, n.token, n.pass]) if (secret) m = m.split(secret).join('***');
-  return m;
+  return redactAll(message, [n]);
 }
