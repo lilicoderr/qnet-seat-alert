@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { parseTable } from '../src/table.js';
 import { evaluate } from '../src/extract.js';
 
-export const real = (n) => fs.readFileSync(new URL(`./fixtures/real/${n}`, import.meta.url), 'utf8');
+import { real } from './helpers/real.js';
 
 test('real rcv00301: 목록 행을 이름/접수기간으로 추출', () => {
   const t = parseTable(real('rcv00301-2026-11-27.html'));
