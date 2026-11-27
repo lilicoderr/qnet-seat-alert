@@ -6,6 +6,7 @@ import { filterRows } from './filter.js';
 import { formatLine } from './log.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
 import { renderTemplate, varsFor } from './template.js';
+import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
@@ -89,6 +90,7 @@ export async function runWatcher(
 export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = () => {}, logger, dry = false, now = () => Date.now(), ...runOpts } = {}) {
   const emit = (r, extra = '') => (logger ? logger.result(r) : log(`${formatLine(r)}${extra}`));
   const results = [];
+  const pending = [];
   const quiet = inQuietHours(config.quietHours, new Date(now()));
   if (!dry && !quiet) await flushHeld(config, { store, fetchImpl, log, now });
   for (const watcher of config.watchers || []) {
@@ -101,7 +103,10 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       if (config.politeDelayMs) await sleep(config.politeDelayMs);
       continue;
     }
-    if (r.ok && r.shouldAlert && gateAlert(config, { store, watcher, r, quiet, now })) {
+    const send = r.ok && r.shouldAlert && gateAlert(config, { store, watcher, r, quiet, now });
+    const toDigest = send && config.digest && !watcher.webhookUrl;
+    if (toDigest) pending.push({ watcher, r });
+    if (send && !toDigest) {
       const notifiers = resolveNotifiers(config, watcher);
       if (notifiers.length > 0) {
         const { delivered, errors } = await notifyAll(notifiers, buildAlertPayload(watcher, r, config), {
@@ -133,7 +138,22 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     // 서버 부담을 줄이기 위한 짧은 간격
     if (config.politeDelayMs) await sleep(config.politeDelayMs);
   }
+  if (pending.length) await sendDigest(config, pending, { fetchImpl });
   return results;
+}
+
+async function sendDigest(config, pending, { fetchImpl }) {
+  const notifiers = resolveNotifiers(config);
+  const payload = pending.length === 1 ? buildAlertPayload(pending[0].watcher, pending[0].r, config) : buildDigestPayload(pending);
+  if (!notifiers.length) {
+    for (const { r } of pending) r.alertError = '알림 채널 없음';
+    return;
+  }
+  const { delivered, errors } = await notifyAll(notifiers, payload, { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+  for (const { r } of pending) {
+    r.alerted = delivered > 0;
+    if (errors.length) r.alertError = errors.join('; ');
+  }
 }
 
 // 조용한 시간이면 보류, 빈도 제한이면 건너뜀. 지금 보내도 되면 true.
