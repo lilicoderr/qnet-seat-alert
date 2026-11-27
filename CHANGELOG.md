@@ -2,6 +2,24 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [1.3.0] — 2026-11-27
+### Added
+- Notifier plugin interface (`plugins`, `docs/plugins.md`, `examples/console-notifier.js`)
+- Email (dependency-free SMTP, TLS/STARTTLS/AUTH) and ntfy.sh notifiers, configurable via `QNET_SMTP_*` / `QNET_NTFY_*`
+- `quietHours` (hold and flush after the window) and `rateLimit.maxPerHour`
+- `historyPath` JSONL availability log and `qnet-alert stats` with text sparklines
+- `digest` mode: alerts raised in the same check are merged into one message
+- Config hot-reload on file change (<=30 s) and `SIGHUP`; invalid configs keep the previous one
+- Deployment recipes: systemd unit, Windows Task Scheduler script, PM2 config (`docs/deploy.md`)
+- Fixture-based parser regression tests and a one-shot "parser broke" alert (`parserAlertAfter`, default 3)
+- JSON Schema (`schemas/config.schema.json`) with `$schema` hint
+- GHCR Docker image publishing workflow on `vX.Y.Z` tags (amd64 + arm64)
+- `lang` option: Korean/English built-in alert messages
+
+### Changed
+- When a page loads but no value can be read, the last known signal is now kept (so recovery compares correctly) instead of being overwritten.
+- `flags` is now an accepted watcher key.
+
 ## [1.2.0] — 2026-11-27
 ### Added
 - `qnet-alert init` 대화형 설정 마법사 — `config.json` 과 `.env.example` 만 생성(비밀값은 묻지 않음, 기존 파일은 `--force` 없이는 보존)
