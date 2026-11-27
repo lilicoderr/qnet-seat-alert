@@ -111,7 +111,7 @@ export async function runInit({ input = process.stdin, output = process.stderr, 
   answers.include = await ask('포함 키워드, 쉼표 구분 (예: 서울,전기기능사)');
   answers.exclude = await ask('제외 키워드, 쉼표 구분 (예: 마감)');
   answers.alertOn = await ask('알림 조건 open/increase/change/available', 'open');
-  answers.intervalMin = await ask('폴링 간격(분, 최소 2)', '5');
+  answers.intervalMin = await ask('폴링 간격(분, 최소 1)', '5');
   const channels = parseChannels(await ask('알림 채널 discord/slack/telegram/webhook, 쉼표 구분', 'discord'));
   rl.close();
 

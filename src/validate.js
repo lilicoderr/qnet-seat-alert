@@ -123,8 +123,8 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
     ids.add(key);
   });
 
-  if (config.intervalMin != null && config.intervalMin < 2) {
-    warnings.push('intervalMin 이 2분 미만입니다. 서버 부담/차단을 피하려면 2분 이상 권장 (최소 2분으로 올림).');
+  if (config.intervalMin != null && config.intervalMin < 1) {
+    warnings.push('intervalMin 이 1분(60초) 미만입니다. 서버 부담/차단을 피하려고 1분으로 올립니다.');
   }
 
   return { ok: errors.length === 0, errors, warnings };

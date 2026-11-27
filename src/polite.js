@@ -7,7 +7,7 @@ export const VERSION = '1.4.0';
 export const POLITE_UA = `qnet-seat-alert/${VERSION} (+https://github.com/lilicoderr/qnet-seat-alert; personal alert-only watcher; low-frequency)`;
 
 // 이 값 미만으로는 설정해도 올린다 (분). README 에 문서화됨.
-export const MIN_INTERVAL_MIN = 2;
+export const MIN_INTERVAL_MIN = 1;
 
 // 기본 지터 비율: 간격의 ±10%.
 export const DEFAULT_JITTER = 0.1;

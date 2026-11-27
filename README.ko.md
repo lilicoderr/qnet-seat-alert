@@ -43,7 +43,7 @@ cp .env.example .env                 # QNET_DISCORD_WEBHOOK 등 채우기
 
 node bin/qnet-alert.js --dry           # 알림 없이 추출 결과만 확인
 node bin/qnet-alert.js --test-webhook  # 모든 채널에 테스트 메시지
-node bin/qnet-alert.js                 # intervalMin 마다 반복 (기본 5분, 최소 2분)
+node bin/qnet-alert.js                 # intervalMin 마다 반복 (기본 5분, 최소 1분)
 ```
 
 실행 예:
@@ -98,7 +98,7 @@ docker compose up -d --build        # .env 의 QNET_* 값을 주입
 
 | 키 | 기본 | 설명 |
 |---|---|---|
-| `intervalMin` | `5` | 폴링 간격(분), 최소 2 |
+| `intervalMin` | `5` | 폴링 간격(분), 최소 1 (60초) |
 | `politeDelayMs` | – | 워처 사이 대기(ms) |
 | `failureAlertAfter` | `5` | 연속 실패 N회에 "감시 오류" 알림 1회 (`0` 이면 끔) |
 | `statePath` | `state.json` | 마지막 신호 저장 파일 (`$QNET_STATE`) |

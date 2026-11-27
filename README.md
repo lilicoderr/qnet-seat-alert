@@ -45,7 +45,7 @@ cp .env.example .env                 # fill QNET_DISCORD_WEBHOOK etc. — never 
 
 node bin/qnet-alert.js --dry           # extract + decide, send nothing
 node bin/qnet-alert.js --test-webhook  # send a test message to every channel
-node bin/qnet-alert.js                 # poll every intervalMin (default 5, minimum 2)
+node bin/qnet-alert.js                 # poll every intervalMin (default 5, minimum 1)
 ```
 
 Sample output:
@@ -100,7 +100,7 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 
 | Key | Default | Description |
 |---|---|---|
-| `intervalMin` | `5` | Polling interval in minutes (minimum 2) |
+| `intervalMin` | `5` | Polling interval in minutes (minimum 1, i.e. 60 s; fractions like 1.5 work) |
 | `politeDelayMs` | – | Pause between watchers (ms) |
 | `failureAlertAfter` | `5` | Send one "watcher failing" alert after N consecutive failures (`0` disables) |
 | `statePath` | `state.json` | File holding the last signal (`$QNET_STATE`) |
@@ -122,7 +122,7 @@ Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `
 
 This tool is alert-only and is meant to be gentle with Q-Net:
 
-- **Minimum interval: 2 minutes.** Lower `intervalMin` values are raised to 2; 3-10 minutes is recommended.
+- **Minimum interval: 60 seconds (`intervalMin: 1`).** Lower values are raised to 1. 1 minute is for short, important windows; 3-10 minutes is the polite everyday choice. Jitter still applies.
 - **Jitter:** each wait is randomized by +/-10% by default (`jitter`).
 - **Identifiable User-Agent:** requests send `qnet-seat-alert/<version> (+repo URL; personal alert-only watcher; low-frequency)`. A watcher's `headers` can override it.
 - Failures back off exponentially (up to 2 retries); `politeDelayMs` spaces out multiple watchers.

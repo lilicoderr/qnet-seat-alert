@@ -1,7 +1,7 @@
 # Running it 24/7
 
 Pick one. In every case keep secrets in `.env` (see `.env.example`) and never commit `config.json`/`.env`.
-The watcher is alert-only and polls politely (default every 5 min, minimum 2).
+The watcher is alert-only and polls politely (default every 5 min, minimum 1).
 
 ## systemd (Linux)
 Use [`deploy/qnet-alert.service`](../deploy/qnet-alert.service); the header comments list the steps.
