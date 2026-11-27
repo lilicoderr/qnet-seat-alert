@@ -30,13 +30,16 @@ function rowSeats(texts, columns) {
   return s ? s.available : null;
 }
 
+// 셀 정리: Q-Net 의 모바일용 라벨(<em class="mSort">)을 제거하고 공백/개행을 하나로 합친다.
+const cleanCell = (html) => stripTags(String(html).replace(/<em[^>]*class=["'][^"']*mSort[^"']*["'][^>]*>[\s\S]*?<\/em>/gi, ' ')).replace(/\s+/g, ' ').trim();
+
 // 원문(HTML/텍스트)에서 표를 뽑는다. 표가 없으면 평가 결과(detail)로 한 줄을 만든다.
 export function parseTable(rawText, watcher = {}, cur = null, lang = 'ko') {
   const l = L[lang] || L.ko;
   let columns = [];
   const rows = [];
   for (const tr of String(rawText).split(/<\/tr>/i)) {
-    const cells = [...tr.matchAll(CELL_RE)].map((m) => ({ tag: m[1].toLowerCase(), text: stripTags(m[2]) }));
+    const cells = [...tr.matchAll(CELL_RE)].map((m) => ({ tag: m[1].toLowerCase(), text: cleanCell(m[2]) }));
     if (!cells.length) continue;
     if (cells.every((c) => c.tag === 'th')) { if (!columns.length) columns = cells.map((c) => c.text); continue; }
     const texts = cells.map((c) => c.text);

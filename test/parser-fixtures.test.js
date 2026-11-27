@@ -53,3 +53,17 @@ test('파서 오류 알림: 연속 N회 null 이면 한 번만, 복구 시 이�
   assert.equal(sent.length, 2);
   assert.match(sent[1].title, /변화 감지/);
 });
+
+// 실제 Q-Net 원서접수현황 목록(https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301, 로그인 불필요) 스냅샷.
+// 이 페이지에는 좌석 수치가 없다 -> seats 는 조용히 0석이 아니라 null 이어야 한다.
+test('real snapshot: 원서접수현황 목록은 좌석 신호 null, contains 로 감시 가능', async () => {
+  const { parseTable } = await import('../src/table.js');
+  const html = fx('qnet-rcv00301.html');
+  assert.equal(seats('qnet-rcv00301.html').signal, null);
+  assert.equal(evaluate({ type: 'contains', needle: '기능사' }, html).signal, 'present');
+  assert.equal(evaluate({ type: 'contains', needle: '산업기사' }, html).signal, 'absent');
+  const t = parseTable(html);
+  assert.equal(t.rows.length, 2);
+  assert.equal(t.rows[0].cells[0], '2026년 상시 기능사 107회 실기');
+  assert.equal(t.rows[0].cells[1], '2026년 11월 27일(금) 10:00 ~ 2026년 11월 27일(금) 18:00');
+});
