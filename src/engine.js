@@ -19,6 +19,8 @@ const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
 import { POLITE_UA } from './polite.js';
 import { readBody, isMaintenancePage } from './body.js';
+import { fetchQnetSeats } from './qnet-chain.js';
+import { QnetLayoutError } from './qnet-seats.js';
 
 // 일시적 오류(네트워크·5xx·429)는 지수 백오프로 재시도한다.
 export function backoffMs(attempt, baseMs = 1000, maxMs = 30000) {
@@ -65,10 +67,19 @@ export async function runWatcher(
   const id = watcher.id || watcher.name || watcher.url;
   let text = '';
   let httpStatus = 0;
+  let layoutNote = '';
   try {
-    const got = await fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs: backoffBaseMs, sleepImpl });
-    text = got.text;
-    httpStatus = got.status;
+    const opts = { fetchImpl, timeoutMs, retries, baseMs: backoffBaseMs, sleepImpl };
+    if (watcher.type === 'qnet') {
+      // 읽기 전용 다단계 조회. 레이아웃 변경은 빈 본문(=신호 없음 → parser broken 알림 경로)으로 처리한다.
+      const fetchText = async (req) => (await fetchWithRetry({ ...req, headers: { ...req.headers, ...(watcher.headers || {}) } }, opts)).text;
+      try { text = (await fetchQnetSeats(watcher, fetchText)).text; } catch (e) { if (!(e instanceof QnetLayoutError)) throw e; text = ''; layoutNote = e.message; }
+      httpStatus = 200;
+    } else {
+      const got = await fetchWithRetry(watcher, opts);
+      text = got.text;
+      httpStatus = got.status;
+    }
   } catch (e) {
     const prev = store?.get(id);
     const failures = (prev?.failures || 0) + 1;
@@ -77,9 +88,10 @@ export async function runWatcher(
   }
 
   const rawText = text;
-  if (watcher.type !== 'jsonseats') text = filterRows(text, watcher).text;
+  if (watcher.type !== 'jsonseats' && watcher.type !== 'qnet') text = filterRows(text, watcher).text;
   const prev = store?.get(id);
-  const cur = applyNewRows(evaluate(watcher, text), prev, watcher);
+  const cur0 = applyNewRows(evaluate(watcher, text), prev, watcher);
+  const cur = layoutNote ? { ...cur0, detail: layoutNote } : cur0;
   const verdict = decide(prev, cur, watcher, lang);
 
   // 현재 신호 저장 (항상 최신으로)

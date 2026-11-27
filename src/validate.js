@@ -9,7 +9,7 @@ import { validateMentions } from './mentions.js';
 import { validateTableImage } from './table-image.js';
 import { TEMPLATE_VARS, unknownVars } from './template.js';
 
-const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex', 'newrows'];
+const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex', 'newrows', 'qnet'];
 const ALERT_ON = ['open', 'increase', 'change', 'available'];
 const ALERT_WHEN = ['present', 'absent', 'change'];
 
@@ -20,7 +20,7 @@ export const TOP_KEYS = [
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
   'dateFrom', 'dateTo', 'mention', 'enabled', 'needle', 'pattern', 'fields', 'method',
-  'headers', 'body', 'webhookUrl', 'template', 'flags', 'schedule', 'alertOnFirst',
+  'headers', 'body', 'webhookUrl', 'template', 'flags', 'schedule', 'alertOnFirst', 'examPattern', 'jongmok', 'region', 'recptCd', 'showClosed', 'refreshMin', 'maxPages',
 ];
 
 function checkNumber(config, key, errors, { min = 0 } = {}) {
@@ -114,6 +114,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
     }
     if (w.type === 'contains' && !w.needle) errors.push(`${where}: contains 타입은 needle 이 필요합니다.`);
     if (w.type === 'newrows' && !w.needle && !w.pattern) errors.push(`${where}: newrows 타입은 needle 또는 pattern 이 필요합니다.`);
+    if (w.type === 'qnet' && !w.jongmok) errors.push(`${where}: qnet 타입은 jongmok(종목 이름 일부, 예: '건축도장')이 필요합니다.`);
     if (w.type === 'regex' && !w.pattern) errors.push(`${where}: regex 타입은 pattern 이 필요합니다.`);
     if (w.webhookUrl && !isWebhookUrl(w.webhookUrl)) errors.push(`${where}: webhookUrl 형식이 올바르지 않습니다.`);
     for (const k of ['include', 'exclude']) {

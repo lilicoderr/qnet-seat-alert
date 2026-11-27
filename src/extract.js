@@ -117,6 +117,14 @@ export function evaluate(watcher, text, { json } = {}) {
       const m = String(text).match(re);
       return { kind: 'regex', signal: m ? (m[1] ?? m[0]) : null, detail: watcher.pattern };
     }
+    case 'qnet': { // fetchQnetSeats 가 만든 표(지역/시험장/시험일자/정원/잔여)
+      if (!/<table/i.test(text)) return { kind: 'seats', signal: null, available: null, detail: 'Q-Net 잔여석 표 없음' };
+      const rows = [...String(text).matchAll(/<tr>((?:<td>[\s\S]*?<\/td>)+)<\/tr>/g)].map((m) => [...m[1].matchAll(/<td>([\s\S]*?)<\/td>/g)].map((c) => c[1]));
+      const open = rows.map((r) => Number(r[4]) || 0);
+      const available = open.reduce((a, b) => a + b, 0);
+      const capacity = rows.reduce((a, r) => a + (Number(r[3]) || 0), 0);
+      return { kind: 'seats', signal: available, available, detail: { capacity, applied: capacity - available, venues: rows.length, openVenues: open.filter((n) => n > 0).length, source: 'qnet' } };
+    }
     case 'newrows': {
       const keys = matchingKeys(text, watcher);
       if (keys === null) return { kind: 'newrows', signal: null, available: null, detail: '목록 표를 찾지 못함' };
