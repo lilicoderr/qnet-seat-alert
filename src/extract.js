@@ -6,6 +6,8 @@
 //     regex   : 정규식 1번 그룹 값을 신호로
 //     jsonseats: JSON 응답에서 정원/접수 필드로 잔여석
 
+import { matchingKeys } from './newrows.js';
+
 // 숫자 추출(쉼표 제거)
 function num(s) {
   const n = Number(String(s).replace(/[,\s]/g, ''));
@@ -114,6 +116,11 @@ export function evaluate(watcher, text, { json } = {}) {
       const re = new RegExp(watcher.pattern, watcher.flags || '');
       const m = String(text).match(re);
       return { kind: 'regex', signal: m ? (m[1] ?? m[0]) : null, detail: watcher.pattern };
+    }
+    case 'newrows': {
+      const keys = matchingKeys(text, watcher);
+      if (keys === null) return { kind: 'newrows', signal: null, available: null, detail: '목록 표를 찾지 못함' };
+      return { kind: 'newrows', signal: JSON.stringify(keys), keys, available: null, detail: watcher.pattern || watcher.needle || '' };
     }
     default:
       throw new Error(`알 수 없는 watcher.type: ${watcher.type}`);

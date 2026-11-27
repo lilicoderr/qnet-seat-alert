@@ -9,7 +9,7 @@ import { validateMentions } from './mentions.js';
 import { validateTableImage } from './table-image.js';
 import { TEMPLATE_VARS, unknownVars } from './template.js';
 
-const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex'];
+const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex', 'newrows'];
 const ALERT_ON = ['open', 'increase', 'change', 'available'];
 const ALERT_WHEN = ['present', 'absent', 'change'];
 
@@ -20,7 +20,7 @@ export const TOP_KEYS = [
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
   'dateFrom', 'dateTo', 'mention', 'enabled', 'needle', 'pattern', 'fields', 'method',
-  'headers', 'body', 'webhookUrl', 'template', 'flags', 'schedule',
+  'headers', 'body', 'webhookUrl', 'template', 'flags', 'schedule', 'alertOnFirst',
 ];
 
 function checkNumber(config, key, errors, { min = 0 } = {}) {
@@ -102,7 +102,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
     if (w.alertWhen != null && !ALERT_WHEN.includes(w.alertWhen)) {
       errors.push(`${where}: alertWhen '${w.alertWhen}'.${didYouMean(w.alertWhen, ALERT_WHEN)} (${ALERT_WHEN.join('/')})`);
     }
-    if (w.type === 'regex' && w.pattern) {
+    if ((w.type === 'regex' || w.type === 'newrows') && w.pattern) {
       try {
         new RegExp(w.pattern);
       } catch (e) {
@@ -113,6 +113,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
       try { parseCron(w.schedule); } catch (e) { errors.push(`${where}: schedule — ${e.message}`); }
     }
     if (w.type === 'contains' && !w.needle) errors.push(`${where}: contains 타입은 needle 이 필요합니다.`);
+    if (w.type === 'newrows' && !w.needle && !w.pattern) errors.push(`${where}: newrows 타입은 needle 또는 pattern 이 필요합니다.`);
     if (w.type === 'regex' && !w.pattern) errors.push(`${where}: regex 타입은 pattern 이 필요합니다.`);
     if (w.webhookUrl && !isWebhookUrl(w.webhookUrl)) errors.push(`${where}: webhookUrl 형식이 올바르지 않습니다.`);
     for (const k of ['include', 'exclude']) {

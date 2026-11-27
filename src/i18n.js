@@ -28,6 +28,8 @@ const M = {
     'decide.unknown': '미확인',
     'decide.stillOpen': '빈자리 {n}석 (계속 열려 있음)',
     'decide.noRule': '비교 규칙 없음',
+    'decide.newRows': '새 항목: {list}',
+    'decide.noNewRows': '새 항목 없음',
   },
   en: {
     username: 'Q-Net seat alert',
@@ -54,6 +56,8 @@ const M = {
     'decide.unknown': 'unknown',
     'decide.stillOpen': '{n} seat(s) open (still available)',
     'decide.noRule': 'no comparison rule',
+    'decide.newRows': 'New entry: {list}',
+    'decide.noNewRows': 'no new entries',
   },
 };
 

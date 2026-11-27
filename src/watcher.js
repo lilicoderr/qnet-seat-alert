@@ -43,6 +43,11 @@ export function decide(prev, cur, watcher, lang = 'ko') {
     return { alert: matches && changed, reason: `${watcher.needle}: ${cur.signal}` };
   }
 
+  if (cur.kind === 'newrows') {
+    const n = cur.newKeys || [];
+    return { alert: n.length > 0, reason: n.length ? t(lang, 'decide.newRows', { list: n.join(', ') }) : t(lang, 'decide.noNewRows') };
+  }
+
   if (cur.kind === 'regex') {
     return { alert: !first && prev.signal !== cur.signal, reason: `${prev?.signal} → ${cur.signal}` };
   }

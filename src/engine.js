@@ -1,6 +1,7 @@
 // 폴링 엔진: 각 워처를 가져와 평가하고, 변화가 있으면 Discord 로 알림.
 
 import { evaluate } from './extract.js';
+import { applyNewRows } from './newrows.js';
 import { decide } from './watcher.js';
 import { filterRows } from './filter.js';
 import { formatLine } from './log.js';
@@ -72,8 +73,8 @@ export async function runWatcher(
 
   const rawText = text;
   if (watcher.type !== 'jsonseats') text = filterRows(text, watcher).text;
-  const cur = evaluate(watcher, text);
   const prev = store?.get(id);
+  const cur = applyNewRows(evaluate(watcher, text), prev, watcher);
   const verdict = decide(prev, cur, watcher, lang);
 
   // 현재 신호 저장 (항상 최신으로)
@@ -92,6 +93,7 @@ export async function runWatcher(
     shouldAlert: verdict.alert,
     reason: verdict.reason,
     nullStreak,
+    newRows: cur.newKeys,
     alerted: false,
   };
   // 현황표 이미지용 원문 (JSON/로그에는 나오지 않도록 열거 불가)
@@ -128,7 +130,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     const toDigest = send && config.digest && !watcher.webhookUrl;
     if (toDigest) pending.push({ watcher, r });
     // 멘션은 알림이 게이트(조용한 시간/빈도 제한)를 통과하고 쿨다운이 지났을 때만, 한 번만 나간다
-    const ping = send && mm.any && r.available > 0 && mentionDue(mm, store, r.id, now());
+    const ping = send && mm.any && (r.available > 0 || r.newRows?.length > 0) && mentionDue(mm, store, r.id, now());
     if (ping) recordMention(store, r.id, now());
     const imageOn = !!tableImageConfig(config);
     const imgOpts = { config, watcher, r, store, now: now(), renderImpl: runOpts.renderImpl };
