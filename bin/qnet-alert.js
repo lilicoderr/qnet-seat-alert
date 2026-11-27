@@ -12,6 +12,7 @@ import path from 'node:path';
 import { runOnce, sleep } from '../src/engine.js';
 import { createStore } from '../src/store.js';
 import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
+import { nextDelayMs, DEFAULT_JITTER } from '../src/polite.js';
 import { loadEnvFile } from '../src/env.js';
 import { createLogger } from '../src/log.js';
 import { maybeHeartbeat } from '../src/heartbeat.js';
@@ -184,7 +185,7 @@ async function main() {
   process.on('SIGINT', () => { running = false; console.error('\n종료합니다.'); process.exit(0); });
   while (running) {
     // 설정 파일 변경도 30초 안에 감지하도록 짧게 쪼개서 잔다
-    const until = Date.now() + intervalMin * 60 * 1000;
+    const until = Date.now() + nextDelayMs(intervalMin, config.jitter ?? DEFAULT_JITTER);
     while (running && Date.now() < until) {
       const woke = await waker.sleep(Math.min(30000, until - Date.now()));
       if (woke || reloader.dirty()) {

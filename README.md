@@ -113,6 +113,7 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 | `digest` | `false` | `true` merges alerts raised in the same check into one message |
 | `historyPath` | – | Append every reading to this JSONL file; view it with `qnet-alert stats` |
 | `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — alerts raised in this window are held and sent once it ends |
+| `jitter` | `0.1` | Randomize each wait by ±this fraction of `intervalMin` (0–0.5) so requests don't land on a fixed beat; see [Polite polling](#polite-polling) |
 | `rateLimit` | – | `{ "maxPerHour": 6 }` — cap alerts per hour; extra ones are skipped (logged only) |
 
 Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}` — e.g. `"title": "🎯 {name}: {available} seats!"`.

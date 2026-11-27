@@ -56,6 +56,7 @@
       "additionalProperties": false,
       "properties": { "maxPerHour": { "type": "integer", "minimum": 1 } }
     },
+    "jitter": { "type": "number", "minimum": 0, "maximum": 0.5, "default": 0.1, "description": "Randomize each wait by +/- this fraction of intervalMin" },
     "templates": { "$ref": "#/definitions/template" },
     "statePath": { "type": "string" },
     "historyPath": { "type": "string" },

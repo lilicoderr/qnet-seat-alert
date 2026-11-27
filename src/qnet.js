@@ -27,4 +27,4 @@ export function makeQnetWatcher({
 }
 
 // 권장 폴링 간격(분) 하한 — 너무 잦은 요청 방지.
-export const MIN_INTERVAL_MIN = 2;
+export { MIN_INTERVAL_MIN } from './polite.js';

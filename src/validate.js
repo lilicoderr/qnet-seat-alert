@@ -13,7 +13,7 @@ const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
   '$schema', 'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
-  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'lang', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit',
+  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'lang', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit', 'jitter',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
@@ -66,6 +66,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   checkNumber(config, 'failureAlertAfter', errors);
   checkNumber(config, 'heartbeatHours', errors);
   checkNumber(config, 'parserAlertAfter', errors);
+  if (config.jitter != null && !(typeof config.jitter === 'number' && config.jitter >= 0 && config.jitter <= 0.5)) errors.push('jitter 는 0~0.5 사이 숫자(간격 대비 비율)여야 합니다.');
   checkNumber(config, 'metricsPort', errors, { min: 1 });
   validateThrottle(config, errors);
   if (config.lang != null && !['ko', 'en'].includes(config.lang)) errors.push(`lang 은 'ko' 또는 'en' 이어야 합니다. (현재: ${JSON.stringify(config.lang)})`);

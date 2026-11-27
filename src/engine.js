@@ -14,8 +14,7 @@ import { isDue } from './cron.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
-const POLITE_UA =
-  'qnet-seat-alert/1.0 (personal use; polling respectfully)';
+import { POLITE_UA } from './polite.js';
 
 // 일시적 오류(네트워크·5xx·429)는 지수 백오프로 재시도한다.
 export function backoffMs(attempt, baseMs = 1000, maxMs = 30000) {
