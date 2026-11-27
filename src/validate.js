@@ -3,6 +3,7 @@
 import { isWebhookUrl } from './discord.js';
 import { resolveNotifiers, validateNotifier } from './notify.js';
 import { didYouMean } from './suggest.js';
+import { TEMPLATE_VARS, unknownVars } from './template.js';
 
 const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex'];
 const ALERT_ON = ['open', 'increase', 'change', 'available'];
@@ -46,6 +47,18 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   for (const k of Object.keys(config)) {
     if (!TOP_KEYS.includes(k)) warnings.push(`알 수 없는 설정 키 '${k}'.${didYouMean(k, TOP_KEYS)}`);
   }
+  const checkTemplate = (tpl, where) => {
+    if (tpl == null) return;
+    if (typeof tpl !== 'object' || Array.isArray(tpl)) {
+      errors.push(`${where}: 객체여야 합니다. ({ "title": "...", "description": "..." })`);
+      return;
+    }
+    for (const k of Object.keys(tpl)) {
+      if (!['title', 'description'].includes(k)) warnings.push(`${where}: 알 수 없는 키 '${k}'. (title/description)`);
+      else for (const u of unknownVars(tpl[k])) warnings.push(`${where}.${k}: 알 수 없는 변수 {${u}} (${TEMPLATE_VARS.join(', ')})`);
+    }
+  };
+  checkTemplate(config.templates, 'templates');
   checkNumber(config, 'intervalMin', errors);
   checkNumber(config, 'politeDelayMs', errors);
   checkNumber(config, 'failureAlertAfter', errors);
@@ -71,6 +84,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
     for (const k of Object.keys(w)) {
       if (!WATCHER_KEYS.includes(k)) warnings.push(`${where}: 알 수 없는 키 '${k}'.${didYouMean(k, WATCHER_KEYS)}`);
     }
+    checkTemplate(w.template, `${where}.template`);
     if (w.alertOn != null && !ALERT_ON.includes(w.alertOn)) {
       errors.push(`${where}: alertOn '${w.alertOn}'.${didYouMean(w.alertOn, ALERT_ON)} (${ALERT_ON.join('/')})`);
     }

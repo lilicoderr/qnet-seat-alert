@@ -5,6 +5,7 @@ import { decide } from './watcher.js';
 import { filterRows } from './filter.js';
 import { formatLine } from './log.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
+import { renderTemplate, varsFor } from './template.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -100,7 +101,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     if (r.ok && r.shouldAlert) {
       const notifiers = resolveNotifiers(config, watcher);
       if (notifiers.length > 0) {
-        const { delivered, errors } = await notifyAll(notifiers, buildAlertPayload(watcher, r), {
+        const { delivered, errors } = await notifyAll(notifiers, buildAlertPayload(watcher, r, config), {
           fetchImpl,
           username: config.username || 'Q-Net 빈자리 알림',
         });
@@ -132,7 +133,9 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
   return results;
 }
 
-export function buildAlertPayload(watcher, r) {
+export function buildAlertPayload(watcher, r, config = {}) {
+  const tpl = { ...(config.templates || {}), ...(watcher.template || {}) };
+  const vars = varsFor(watcher, r);
   const fields = [];
   if (r.available !== null && r.available !== undefined) {
     fields.push({ name: '빈자리', value: `${r.available}석`, inline: true });
@@ -141,8 +144,8 @@ export function buildAlertPayload(watcher, r) {
     fields.push({ name: '정원/접수', value: `${r.detail.applied}/${r.detail.capacity}`, inline: true });
   }
   return {
-    title: `🔔 ${watcher.name || 'Q-Net'} 변화 감지`,
-    description: r.reason,
+    title: tpl.title ? renderTemplate(tpl.title, vars) : `🔔 ${watcher.name || 'Q-Net'} 변화 감지`,
+    description: tpl.description ? renderTemplate(tpl.description, vars) : r.reason,
     url: watcher.linkUrl || watcher.url,
     color: (r.available ?? 1) > 0 ? 0x2b8a3e : 0x868e96,
     fields,
