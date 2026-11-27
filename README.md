@@ -20,6 +20,29 @@
 
 [Q-Net](https://www.q-net.or.kr/) is Korea's national technical-qualification portal. Seats for popular exams (기능사 practical tests, etc.) vanish in minutes and reappear when someone cancels. This tool watches pages **you** point it at and tells you the moment a seat reopens.
 
+## What can be watched without login
+
+Checked against the live public page on 2026-11-27 (HTTP 200, UTF-8, no login):
+
+| Public page | What it shows | Usable? |
+|---|---|---|
+| [`rcv003.do?gSite=Q&id=rcv00301`](https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301) (원서접수현황) | Exams whose application window is currently open: exam name/round and 접수기간 (e.g. `2026년 상시 기능사 107회 실기`) | Yes: `newrows` watcher + table image |
+| Schedule pages (`crf021.do`, 연간/월간 시험일정) | The schedule tables are built by JavaScript in the browser, so the raw HTML has no rows | No (not parseable without running scripts) |
+| Seat counts / remaining seats (잔여석) | Only after login, per exam venue | **Not possible here.** This tool never logs in |
+
+So the honest scope for 기능사 is: **alert once when a new 기능사 필기 (written exam) application window appears in the public list, and post a table of the listed windows with a KST time header every minute.** It cannot tell you whether seats are left. Names on the page are like `2026년 상시 기능사 107회 실기`; a written-exam entry should contain `기능사 ... 필기`, hence the pattern `기능사.*필기` (verify against the next real listing; the pattern is the only guess here).
+
+```bash
+qnet-alert init --preset gineungsa      # 1-minute interval, newrows watcher, table image
+qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # offline end-to-end check, nothing sent
+```
+
+The `newrows` watcher (`pattern` regex or `needle` substring) remembers every matching entry it has seen, so each new entry alerts exactly once (first run is a silent baseline unless `alertOnFirst: true`). Q-Net maintenance pages (HTTP 5xx, or a short "점검" page with 200) count as fetch failures and never overwrite the saved state; EUC-KR and UTF-8 responses are both decoded.
+
+Table image from the real fixture (`node scripts/make-real-sample-image.js`):
+
+![real table image](docs/table-sample-real.png)
+
 ## Features
 
 - **Zero dependencies** — Node 20+ built-in `fetch` only
@@ -172,7 +195,7 @@ With `tableImage` set, the current seat table (date, region, venue, exam, capaci
 |---|---|
 | `name`, `id` | Display name / identifier used for state storage |
 | `url`, `linkUrl` | URL to fetch / link attached to the alert |
-| `type` | `seats` · `jsonseats` · `contains` · `regex` |
+| `type` | `seats` · `jsonseats` · `contains` · `regex` · `newrows` |
 | `alertOn` | `open` (default) · `increase` · `change` · `available` |
 | `include` / `exclude` | Row filters — keep rows containing **all** `include` keywords and none of `exclude` |
 | `dateFrom` / `dateTo` | Keep rows whose date (`2026.12.05`, `2026-12-05`, `2026년 12월 5일`) falls in the `YYYY-MM-DD` range |
@@ -187,6 +210,7 @@ With `tableImage` set, the current seat table (date, region, venue, exam, capaci
 | `jsonseats` | Computes from capacity/applied/remaining fields of a JSON response (`fields` selects keys) |
 | `contains` | Detects a phrase (`needle`) appearing/disappearing (`alertWhen`: present/absent/change) |
 | `regex` | Detects changes in the first capture group of `pattern` |
+| `newrows` | Alerts once per new list row whose text matches `pattern` / `needle` (public 원서접수현황 list); `alertOnFirst` also alerts for rows present on the first run |
 
 ## How it works
 

@@ -18,6 +18,29 @@
 > **알림 전용입니다.** 자동 접수·로그인·매크로는 하지 않습니다. 접수는 사람이 직접 합니다.
 > Q-Net 자동 조회는 이용약관에 저촉될 수 있으니 **개인 확인 용도로만**, 폴링 간격을 넉넉히(3~10분) 두세요.
 
+## 로그인 없이 감시할 수 있는 것
+
+2026-11-27 실제 공개 페이지로 확인한 결과입니다 (HTTP 200, UTF-8, 로그인 불필요).
+
+| 공개 페이지 | 보이는 내용 | 사용 가능? |
+|---|---|---|
+| [`rcv003.do?gSite=Q&id=rcv00301`](https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301) (원서접수현황) | 현재 접수 중인 시험의 이름/회차와 접수기간 (예: `2026년 상시 기능사 107회 실기`) | 가능: `newrows` 감시 + 현황표 이미지 |
+| 시험일정 페이지 (`crf021.do`) | 표를 브라우저의 JavaScript 가 만들어서 원본 HTML 에는 행이 없음 | 불가 (스크립트 실행 없이는 파싱 불가) |
+| 잔여석 / 좌석 수 | 로그인 후 시험장별로만 표시 | **불가능.** 이 도구는 로그인하지 않습니다 |
+
+따라서 기능사에서 정직하게 할 수 있는 일은 **공개 목록에 새 기능사 필기 접수가 처음 나타나면 한 번 알리고, 1분마다 KST 시각 헤더가 붙은 접수 목록 표 이미지를 올리는 것**입니다. 남은 자리가 있는지는 알 수 없습니다. 페이지의 이름 형식은 `2026년 상시 기능사 107회 실기` 이므로 필기 항목은 `기능사 ... 필기` 를 포함할 것으로 보고 패턴 `기능사.*필기` 를 썼습니다 (다음 실제 목록으로 확인 필요, 유일한 추정입니다).
+
+```bash
+qnet-alert init --preset gineungsa      # 1분 간격, newrows 감시, 표 이미지
+qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # 오프라인 종단 점검 (전송 없음)
+```
+
+`newrows` 는 본 적 있는 항목을 모두 기억해 새 항목마다 정확히 한 번만 알립니다 (첫 실행은 조용한 기준선, `alertOnFirst: true` 로 변경). Q-Net 점검 페이지(HTTP 5xx, 또는 200 으로 내려오는 짧은 "점검" 안내)는 수집 실패로 처리되어 저장된 상태를 덮어쓰지 않으며, EUC-KR/UTF-8 모두 디코드합니다.
+
+실제 fixture 로 만든 표 이미지 (`node scripts/make-real-sample-image.js`):
+
+![실제 현황표 이미지](docs/table-sample-real.png)
+
 ## 특징
 
 - **의존성 0** — Node 20+ 내장 `fetch` 만 사용
@@ -161,7 +184,7 @@ Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **
 |---|---|
 | `name`, `id` | 표시 이름 / 상태 저장용 식별자 |
 | `url`, `linkUrl` | 가져올 URL / 알림에 붙일 링크 |
-| `type` | `seats` · `jsonseats` · `contains` · `regex` |
+| `type` | `seats` · `jsonseats` · `contains` · `regex` · `newrows` |
 | `alertOn` | `open`(기본) · `increase` · `change` · `available` |
 | `include` / `exclude` | 행 필터 — 모든 `include` 키워드를 포함하고 `exclude` 는 없는 행만 사용 |
 | `dateFrom` / `dateTo` | 행의 날짜(`2026.12.05`, `2026-12-05`, `2026년 12월 5일`)가 `YYYY-MM-DD` 범위일 때만 |
@@ -175,6 +198,7 @@ Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **
 | `jsonseats` | JSON 응답의 정원/접수/잔여 필드로 계산 (`fields` 로 키 지정) |
 | `contains` | 문구(`needle`) 등장/사라짐 감지 (`alertWhen`: present/absent/change) |
 | `regex` | `pattern` 1번 그룹 값 변화 감지 |
+| `newrows` | 공개 원서접수현황 목록에서 `pattern`/`needle` 에 맞는 새 행이 생기면 한 번만 알림 (`alertOnFirst`: 첫 실행에 이미 있는 행도 알림) |
 
 ## 동작 방식
 
