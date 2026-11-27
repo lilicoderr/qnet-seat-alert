@@ -194,3 +194,7 @@ Q-Net's exact seat endpoint may need a login/session or change its structure. Th
 ## Contributing
 
 [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) · [MIT License](LICENSE)
+
+## Hot reload
+
+While running, the config file is re-read automatically when it changes (checked every ≤30 s), or immediately on `SIGHUP` (`kill -HUP <pid>`, Linux/macOS). An invalid new config is rejected and the previous one keeps running, with the error printed.

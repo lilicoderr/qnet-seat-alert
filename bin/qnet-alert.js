@@ -15,6 +15,7 @@ import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
 import { loadEnvFile } from '../src/env.js';
 import { createLogger } from '../src/log.js';
 import { maybeHeartbeat } from '../src/heartbeat.js';
+import { createReloader, createWaker } from '../src/reload.js';
 import { appendHistory } from '../src/history.js';
 import { createMetrics, startMetricsServer } from '../src/metrics.js';
 
@@ -52,7 +53,7 @@ async function main() {
     console.error('config.example.json 을 복사해 config.json 으로 만들고 webhookUrl·watchers 를 채우세요.');
     process.exit(1);
   }
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  let config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
   if (Array.isArray(config.plugins) && config.plugins.length) {
     const { loadPlugins } = await import('../src/plugins.js');
@@ -109,7 +110,21 @@ async function main() {
     process.exit(1);
   }
 
-  const intervalMin = Math.max(MIN_INTERVAL_MIN, Number(config.intervalMin) || 5);
+  const intervalOf = (c) => Math.max(MIN_INTERVAL_MIN, Number(c.intervalMin) || 5);
+  let intervalMin = intervalOf(config);
+  const { validateConfig: validateNew } = await import('../src/validate.js');
+  const { loadPlugins } = await import('../src/plugins.js');
+  const reloader = createReloader({
+    file: configPath,
+    initial: config,
+    validate: (c) => validateNew(c, { requireWebhook: !args.dry }),
+    prepare: (c) => loadPlugins(c.plugins || [], { cwd: path.dirname(configPath) }).then(() => {}),
+  });
+  let hupPending = false;
+  const waker = createWaker();
+  if (!args.once && process.platform !== 'win32') {
+    process.on('SIGHUP', () => { hupPending = true; waker.wake(); });
+  }
   console.error(`[qnet-alert] 워처 ${watchers.length}개, 간격 ${intervalMin}분${args.once ? ' (1회)' : ''}`);
   console.error(`[주의] ${DISCLAIMER}`);
 
@@ -129,6 +144,14 @@ async function main() {
   const startedAt = Date.now();
   const tick = async () => {
     try {
+      const rr = await reloader.check({ force: hupPending });
+      hupPending = false;
+      for (const e of rr.errors) console.error(`[reload] ❌ ${e} (이전 설정 유지)`);
+      if (rr.changed) {
+        config = rr.config;
+        intervalMin = intervalOf(config);
+        logger.info(`🔄 설정 다시 불러옴 (워처 ${(config.watchers || []).length}개, 간격 ${intervalMin}분)`);
+      }
       const results = await runOnce(config, { store, logger, dry: args.dry });
       metrics.record(results);
       if (config.historyPath && !args.dry) appendHistory(config.historyPath, results);
@@ -148,7 +171,15 @@ async function main() {
   let running = true;
   process.on('SIGINT', () => { running = false; console.error('\n종료합니다.'); process.exit(0); });
   while (running) {
-    await sleep(intervalMin * 60 * 1000);
+    // 설정 파일 변경도 30초 안에 감지하도록 짧게 쪼개서 잔다
+    const until = Date.now() + intervalMin * 60 * 1000;
+    while (running && Date.now() < until) {
+      const woke = await waker.sleep(Math.min(30000, until - Date.now()));
+      if (woke || reloader.dirty()) {
+        hupPending = woke;
+        break;
+      }
+    }
     if (running) await tick();
   }
 }
