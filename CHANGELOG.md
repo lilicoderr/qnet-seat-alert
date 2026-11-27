@@ -2,6 +2,13 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [1.5.0] — 2026-11-27
+### Added
+- `config.example.json`: a watcher for the real public Q-Net application list (`rcv00301`, no login). It alerts when a `기능사 필기` entry appears. Note: that page lists applications only, not seat counts, and only during application periods; seat counts are not publicly available without login
+
+### Fixed
+- The example needle is `기능사 필기` rather than `기능사`: the page navigation always contains `기능사`, so the broader needle would alert on every check
+
 ## [1.4.1] — 2026-11-27
 ### Fixed
 - Discord: one message per check. The alert embed and the table image are sent together (multipart, `attachment://qnet-status.png`) with the mention text once; previously the alert and the image were two messages that both pinged. No-alert checks with `tableImage.every` send an image-only message without mentions; Telegram uses a single `sendPhoto`
