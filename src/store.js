@@ -20,7 +20,7 @@ export function createStore(file = defaultStatePath()) {
   return {
     file,
     get(id) {
-      return cache[id] ?? null;
+      return cache[id] ? { ...cache[id] } : null;
     },
     set(id, value) {
       cache[id] = { ...value, at: Date.now() };
@@ -33,7 +33,7 @@ export function createStore(file = defaultStatePath()) {
       }
     },
     all() {
-      return { ...cache };
+      return structuredClone(cache);
     },
   };
 }
