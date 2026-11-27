@@ -38,3 +38,15 @@ test('doctor/test --fixture: 네트워크·전송 없이 종료코드 0', async 
   } finally { globalThis.fetch = prev; }
   assert.match(lines.join('\n'), /table image would show 2 row/);
 });
+
+test('doctor --fixture: qnet 워처도 단계별 fixture 로 오프라인 실행', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-'));
+  const file = path.join(dir, 'config.json');
+  const q = { type: 'qnet', name: '건축도장', examPattern: '기능사', jongmok: '건축도장', url: 'https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301' };
+  fs.writeFileSync(file, JSON.stringify({ webhookUrl: 'https://discord.com/api/webhooks/123456789012345678/abc-token', watchers: [q] }));
+  const lines = [];
+  assert.equal(await runDoctor(['--config', file, '--fixture', FIX], { out: (s) => lines.push(s) }), 0);
+  assert.match(lines.join('\n'), /qnet chain ran offline .*지역 \| 시험장 \| 시험일자 \| 정원 \| 잔여/);
+  fs.writeFileSync(file, JSON.stringify({ webhookUrl: 'https://discord.com/api/webhooks/123456789012345678/abc-token', watchers: [{ ...q, jongmok: '없는종목' }] }));
+  assert.equal(await runDoctor(['--config', file, '--fixture', FIX], { out: (s) => lines.push(s) }), 1);
+});

@@ -3,7 +3,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { flagValue, loadConfigFile } from './cli-util.js';
-import { checkFixture } from './fixture-check.js';
+import { FIXTURE_NOW, checkFixtureFile } from './fixture-check.js';
 import { formatReport } from './doctor.js';
 import { resolveNotifiers, sendTo } from './notify.js';
 import { loadPlugins } from './plugins.js';
@@ -24,7 +24,7 @@ export async function runTest(argv, { out = console.log, fetchImpl, env = proces
   const cfg = config || {};
   const fixture = flagValue(argv, '--fixture');
   if (fixture) { // 오프라인: 알림은 보내지 않고 watcher 를 저장된 페이지에 적용해 본다
-    const items = checkFixture(cfg, fs.readFileSync(fixture, 'utf8'));
+    const items = await checkFixtureFile(cfg, fixture, { now: FIXTURE_NOW });
     out(formatReport(items));
     return items.some((i) => i.level === 'fail') ? 1 : 0;
   }
