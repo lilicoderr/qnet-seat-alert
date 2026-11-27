@@ -2,6 +2,16 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [1.4.1] — 2026-11-27
+### Fixed
+- Discord: one message per check. The alert embed and the table image are sent together (multipart, `attachment://qnet-status.png`) with the mention text once; previously the alert and the image were two messages that both pinged. No-alert checks with `tableImage.every` send an image-only message without mentions; Telegram uses a single `sendPhoto`
+- The image path no longer bypasses gates: mentions respect `cooldownMin`, quiet hours send nothing (images included), and `rateLimit` applies to the combined message
+- Chrome is no longer started with `--no-sandbox` except on Linux as root
+- Image height is measured from the real layout (with a text-aware estimate as fallback), so wrapped long cells are not clipped
+
+### Added
+- End-to-end tests (fake Q-Net server) for one message per check, cooldown, quiet hours and rateLimit
+
 ## [1.4.0] — 2026-11-27
 ### Added
 - `tableImage`: the seat-status table rendered as a PNG (KST check time as the top line, open rows highlighted) and attached to Discord (multipart) / Telegram; `every: true` sends it on every check, otherwise only when the table changes. Rendered with system Chrome/Edge headless (no new dependency)

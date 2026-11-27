@@ -148,7 +148,8 @@ Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **
 ```
 
 - `every: true` 면 체크마다 보내고, 기본값 `false` 는 지난 체크와 표가 달라졌을 때만 보냅니다 (첫 체크는 변화로 취급).
-- Discord 는 multipart 파일 업로드(같은 `allowed_mentions` 규칙), Telegram 은 `sendPhoto` 를 씁니다. Slack 인커밍 웹훅은 파일 업로드가 안 되어 텍스트 알림만 갑니다.
+- **체크당 메시지 1통.** Discord 는 알림 임베드와 현황표 이미지를 multipart 한 통으로 보내며(이미지는 임베드 안에 표시), 멘션 문구는 정확히 한 번만 들어가고 `allowed_mentions` 는 설정한 ID 로만 제한됩니다. 알림이 없는 체크라도 `every` 가 켜져 있으면 멘션 없는 이미지 전용 메시지를 보냅니다. 멘션은 `cooldownMin` 을 따르고, 조용한 시간에는 이미지 포함 아무것도 보내지 않으며, `rateLimit` 는 합쳐진 메시지 기준입니다. Telegram 은 알림 본문을 캡션으로 한 `sendPhoto` 한 통입니다. Slack 인커밍 웹훅은 파일 업로드가 안 되어 텍스트 알림만 갑니다.
+- 이미지 높이는 실제 레이아웃을 먼저 측정(headless 1차 실행)해서 정하므로 긴 시험장 이름이 줄바꿈돼도 잘리지 않습니다. Chrome 은 샌드박스를 켠 채 실행하며, `--no-sandbox` 는 Linux 에서 root 로 실행할 때(예: 컨테이너)만 추가됩니다. 그 경우 Chrome 이 샌드박스로는 시작을 거부하기 때문입니다.
 - **렌더러 선택:** npm 의존성·Playwright 없이, 설치된 Chrome/Chromium/Edge 의 headless 스크린샷을 씁니다 (자동 탐지, `tableImage.chrome` 또는 `QNET_CHROME` 으로 지정). 브라우저가 없으면 이미지만 건너뛰고 오류를 기록하며 텍스트 알림은 그대로 갑니다.
 - 가상의 fixture 데이터로 만든 샘플 (`node scripts/make-sample-image.js`):
 

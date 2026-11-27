@@ -159,7 +159,8 @@ With `tableImage` set, the current seat table (date, region, venue, exam, capaci
 ```
 
 - `every: true` sends the image on every check; the default `false` sends it only when the table changed since the last check (the first check counts as a change).
-- Discord gets a multipart file upload (same `allowed_mentions` rules) and Telegram uses `sendPhoto`. Slack incoming webhooks cannot upload files, so Slack only gets the text alert.
+- **One message per check.** On Discord the alert embed and the table image go out as a single multipart message (image embedded in the embed), with the mention text exactly once and `allowed_mentions` limited to the configured IDs. If a check has no alert but `every` is on, an image-only message is sent without any mention. Mentions follow `cooldownMin`; quiet hours send nothing (images included); `rateLimit` counts the combined message. Telegram uses `sendPhoto` with the alert text as caption (one message). Slack incoming webhooks cannot upload files, so Slack only gets the text alert.
+- The image height is measured from the real layout (a first headless pass), so long venue names that wrap are not clipped. Chrome runs with its sandbox on; `--no-sandbox` is added only on Linux when running as root (e.g. in a container), where Chrome refuses to start otherwise.
 - **Renderer choice:** no new npm dependency and no Playwright. The HTML table is screenshotted with the system Chrome/Chromium/Edge in headless mode (auto-detected; override with `tableImage.chrome` or `QNET_CHROME`). If no browser is found, only the image is skipped and the error is logged; text alerts are unaffected.
 - Sample from fictional fixture data (`node scripts/make-sample-image.js`):
 

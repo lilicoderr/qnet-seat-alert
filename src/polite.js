@@ -1,7 +1,7 @@
 // 예의 있는 폴링: 식별 가능한 User-Agent, 최소 간격, 지터(jitter).
 // 이 도구는 알림 전용이며 사이트에 부담을 주지 않도록 느리게 폴링한다.
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.4.1';
 
 // 연락 가능한 정보 없이도 "누가 요청하는지" 알 수 있게 도구명/버전/저장소를 담는다.
 export const POLITE_UA = `qnet-seat-alert/${VERSION} (+https://github.com/lilicoderr/qnet-seat-alert; personal alert-only watcher; low-frequency)`;
