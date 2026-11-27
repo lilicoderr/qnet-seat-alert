@@ -14,6 +14,7 @@ import { createStore } from '../src/store.js';
 import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
 import { loadEnvFile } from '../src/env.js';
 import { createLogger } from '../src/log.js';
+import { maybeHeartbeat } from '../src/heartbeat.js';
 
 function parseArgs(argv) {
   const args = { once: false, config: process.env.QNET_CONFIG || 'config.json', testWebhook: false, list: false };
@@ -91,9 +92,14 @@ async function main() {
 
   const logger = createLogger({ json: args.json, quiet: args.quiet });
 
+  const startedAt = Date.now();
   const tick = async () => {
     try {
-      await runOnce(config, { store, logger, dry: args.dry });
+      const results = await runOnce(config, { store, logger, dry: args.dry });
+      if (!args.dry) {
+        const hb = await maybeHeartbeat(config, { store, results, startedAt });
+        if (hb === 'sent') logger.info('💓 하트비트 전송');
+      }
     } catch (e) {
       console.error('[tick 오류]', e.message);
     }
