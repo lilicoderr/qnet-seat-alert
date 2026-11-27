@@ -4,6 +4,7 @@ import { isWebhookUrl } from './discord.js';
 import { resolveNotifiers, validateNotifier } from './notify.js';
 import { didYouMean } from './suggest.js';
 import { validateThrottle } from './throttle.js';
+import { parseCron } from './cron.js';
 import { TEMPLATE_VARS, unknownVars } from './template.js';
 
 const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex'];
@@ -17,7 +18,7 @@ export const TOP_KEYS = [
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
   'dateFrom', 'dateTo', 'mention', 'enabled', 'needle', 'pattern', 'fields', 'method',
-  'headers', 'body', 'webhookUrl', 'template', 'flags',
+  'headers', 'body', 'webhookUrl', 'template', 'flags', 'schedule',
 ];
 
 function checkNumber(config, key, errors, { min = 0 } = {}) {
@@ -102,6 +103,9 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
       } catch (e) {
         errors.push(`${where}: pattern 정규식 오류 — ${e.message}`);
       }
+    }
+    if (w.schedule != null) {
+      try { parseCron(w.schedule); } catch (e) { errors.push(`${where}: schedule — ${e.message}`); }
     }
     if (w.type === 'contains' && !w.needle) errors.push(`${where}: contains 타입은 needle 이 필요합니다.`);
     if (w.type === 'regex' && !w.pattern) errors.push(`${where}: regex 타입은 pattern 이 필요합니다.`);

@@ -127,6 +127,7 @@ docker compose up -d --build        # .env 의 QNET_* 값을 주입
 | `include` / `exclude` | 행 필터 — 모든 `include` 키워드를 포함하고 `exclude` 는 없는 행만 사용 |
 | `dateFrom` / `dateTo` | 행의 날짜(`2026.12.05`, `2026-12-05`, `2026년 12월 5일`)가 `YYYY-MM-DD` 범위일 때만 |
 | `mention` | 알림 본문에 넣을 멘션 |
+| `schedule` | cron 형식 `분 시 일 월 요일` (로컬 시간, 예: `*/10 9-18 * * 1-5`): 마지막 실행 이후 일정이 도래했을 때만 실행. 루프 주기는 전역 `intervalMin` 이 정함 |
 | `enabled` | `false` 면 건너뜀 |
 
 | type | 동작 |

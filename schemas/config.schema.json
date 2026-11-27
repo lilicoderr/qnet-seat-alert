@@ -93,6 +93,7 @@
         "needle": { "type": "string" },
         "pattern": { "type": "string" },
         "flags": { "type": "string" },
+        "schedule": { "type": "string", "description": "5-field cron (min hour dom month dow), local time; the watcher runs only when due", "examples": ["*/10 9-18 * * 1-5"] },
         "fields": { "type": "object" },
         "method": { "type": "string" },
         "headers": { "type": "object", "additionalProperties": { "type": "string" } },

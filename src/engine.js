@@ -10,6 +10,7 @@ import { buildParserBrokenPayload } from './parser-alert.js';
 import { langOf, t, usernameOf } from './i18n.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
+import { isDue } from './cron.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -100,6 +101,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
   if (!dry && !quiet) await flushHeld(config, { store, fetchImpl, log, now });
   for (const watcher of config.watchers || []) {
     if (watcher.enabled === false) continue;
+    if (watcher.schedule && !dry && !scheduleDue(watcher, store, now())) continue;
     const r = await runWatcher(watcher, { store, fetchImpl, lang: langOf(config), ...runOpts });
     if (dry) {
       r.dry = true;
@@ -153,6 +155,14 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
   }
   if (pending.length) await sendDigest(config, pending, { fetchImpl });
   return results;
+}
+
+// 워처별 cron 일정: 마지막 실행 이후 일정에 맞는 분이 있으면 실행한다.
+function scheduleDue(watcher, store, nowMs) {
+  const key = `__sched:${watcher.id || watcher.name || watcher.url}`;
+  const due = isDue(watcher.schedule, store?.get(key)?.last, nowMs);
+  if (due) store?.set(key, { last: nowMs });
+  return due;
 }
 
 async function sendDigest(config, pending, { fetchImpl }) {

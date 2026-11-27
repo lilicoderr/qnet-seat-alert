@@ -129,6 +129,7 @@ Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `
 | `dateFrom` / `dateTo` | Keep rows whose date (`2026.12.05`, `2026-12-05`, `2026년 12월 5일`) falls in the `YYYY-MM-DD` range |
 | `template` | Per-watcher `{ title, description }` override |
 | `mention` | Mention text for the alert body |
+| `schedule` | Cron-like `min hour dom month dow` (local time, e.g. `*/10 9-18 * * 1-5`): the watcher only runs when the schedule has fired since its last run. The global `intervalMin` still sets how often the loop wakes |
 | `enabled` | `false` to skip |
 
 | `type` | Behaviour |
