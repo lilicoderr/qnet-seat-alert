@@ -11,6 +11,7 @@ import { buildParserBrokenPayload } from './parser-alert.js';
 import { langOf, t, usernameOf } from './i18n.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
+import { holdAlert, dropHeld, flushHeld } from './held.js';
 import { isDue } from './cron.js';
 import { prepareTableImage, notifyAllWithImage, tableImageConfig } from './table-image.js';
 import { mentionsFromConfig, mentionDue, recordMention } from './mentions.js';
@@ -27,7 +28,10 @@ export function backoffMs(attempt, baseMs = 1000, maxMs = 30000) {
   return Math.min(maxMs, baseMs * 2 ** attempt);
 }
 
-async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, sleepImpl }) {
+// 다시 해도 소용없는 응답(4xx, 점검 안내)은 곧바로 포기한다.
+const fatal = (message) => Object.assign(new Error(message), { fatal: true });
+
+async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, sleepImpl, noRetryStatus }) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();
@@ -41,16 +45,16 @@ async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, 
       });
       const retryable = res.status === 429 || res.status >= 500;
       // 오류 응답(4xx/5xx) 본문은 파싱하지 않는다: 오류 페이지를 좌석 정보로 오인하지 않도록 실패로 처리
-      if (res.status >= 400 && (!retryable || attempt === retries)) throw new Error(`HTTP ${res.status}`);
+      if (res.status >= 400 && (!retryable || attempt === retries || res.status === noRetryStatus)) throw fatal(`HTTP ${res.status}`);
       if (!retryable) {
         const body = await readBody(res);
-        if (isMaintenancePage(body)) throw new Error('Q-Net maintenance page (점검 중)');
+        if (isMaintenancePage(body)) throw fatal('Q-Net maintenance page (점검 중)');
         return { status: res.status, text: body, attempts: attempt + 1 };
       }
       lastErr = new Error(`HTTP ${res.status}`);
     } catch (e) {
       lastErr = e;
-      if (attempt === retries) break;
+      if (e.fatal || attempt === retries) break;
     } finally {
       clearTimeout(timer);
     }
@@ -72,7 +76,8 @@ export async function runWatcher(
     const opts = { fetchImpl, timeoutMs, retries, baseMs: backoffBaseMs, sleepImpl };
     if (watcher.type === 'qnet') {
       // 읽기 전용 다단계 조회. 레이아웃 변경은 빈 본문(=신호 없음 → parser broken 알림 경로)으로 처리한다.
-      const fetchText = async (req) => (await fetchWithRetry({ ...req, headers: { ...req.headers, ...(watcher.headers || {}) } }, opts)).text;
+      // Q-Net 429 는 즉시 재시도하지 않는다: qnet-chain 의 백오프에 맡긴다
+      const fetchText = async (req) => (await fetchWithRetry({ ...req, headers: { ...req.headers, ...(watcher.headers || {}) } }, { ...opts, noRetryStatus: 429 })).text;
       try { text = (await fetchQnetSeats(watcher, fetchText, { sleep: sleepImpl })).text; } catch (e) { if (!(e instanceof QnetLayoutError)) throw e; text = ''; layoutNote = e.message; }
       httpStatus = 200;
     } else {
@@ -124,10 +129,10 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
   const results = [];
   const pending = [];
   const quiet = inQuietHours(config.quietHours, new Date(now()));
-  if (!dry && !quiet) await flushHeld(config, { store, fetchImpl, log, now });
   for (const watcher of config.watchers || []) {
     if (watcher.enabled === false) continue;
     if (watcher.schedule && !dry && !scheduleDue(watcher, store, now())) continue;
+    const before = store?.get(watcher.id || watcher.name || watcher.url);
     const r = await runWatcher(watcher, { store, fetchImpl, lang: langOf(config), ...runOpts });
     if (dry) {
       r.dry = true;
@@ -136,6 +141,8 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       if (config.politeDelayMs) await sleep(config.politeDelayMs);
       continue;
     }
+    // 보류해 둔 알림은 그 사이 자리가 닫혔으면 버린다 (낡은 알림/멘션 방지)
+    if (r.ok && r.available === 0) dropHeld(store, r.id);
     // 멘션이 설정돼 있으면 빈자리가 보이는 동안 매 체크(쿨다운 반영) 다시 알린다
     const mm = mentionsFromConfig(config);
     if (r.ok && !r.shouldAlert && mm.any && mm.whileAvailable && r.available > 0 && mentionDue(mm, store, r.id, now())) {
@@ -145,10 +152,9 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     const wanted = r.ok && r.shouldAlert;
     const send = wanted && gateAlert(config, { store, watcher, r, quiet, now });
     const toDigest = send && config.digest && !watcher.webhookUrl;
-    if (toDigest) pending.push({ watcher, r });
-    // 멘션은 알림이 게이트(조용한 시간/빈도 제한)를 통과하고 쿨다운이 지났을 때만, 한 번만 나간다
+    // 멘션은 알림이 게이트(조용한 시간/빈도 제한)를 통과하고 쿨다운이 지났을 때만, 전송에 성공하면 기록한다
     const ping = send && mm.any && (r.available > 0 || r.newRows?.length > 0) && mentionDue(mm, store, r.id, now());
-    if (ping) recordMention(store, r.id, now());
+    if (toDigest) pending.push({ watcher, r, ping, before });
     const imageOn = !!tableImageConfig(config);
     const imgOpts = { config, watcher, r, store, now: now(), renderImpl: runOpts.renderImpl };
     if (send && !toDigest) {
@@ -165,7 +171,9 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
           ? await notifyAllWithImage(notifiers, img.png, { ...opts, payload, caption: img.caption })
           : await notifyAll(notifiers, payload, opts);
         r.alerted = delivered > 0;
+        if (delivered > 0) img?.commit();
         if (errors.length) r.alertError = [r.alertError, errors.join('; ')].filter(Boolean).join('; ');
+        settleAlert(store, r, { ping, before, now: now() });
       } else {
         r.alertError = '알림 채널 없음';
       }
@@ -197,10 +205,11 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     if (imageOn && !quiet && (!wanted || toDigest)) {
       const notifiers = resolveNotifiers(config, watcher);
       try {
-        const img = notifiers.length ? await prepareTableImage({ ...imgOpts, gate: () => takeRateSlot(config, store, now()) }) : null;
+        const img = notifiers.length ? await prepareTableImage({ ...imgOpts, gate: () => takeRateSlot(config, store, now(), '__rate:image') }) : null;
         if (img) {
           const { errors } = await notifyAllWithImage(notifiers, img.png, { fetchImpl, username: usernameOf(config), caption: img.caption });
           if (errors.length) r.alertError = [r.alertError, ...errors].filter(Boolean).join('; ');
+          else img.commit();
         }
       } catch (e) { r.alertError = [r.alertError, `image: ${e.message}`].filter(Boolean).join('; '); }
     }
@@ -209,7 +218,9 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     // 서버 부담을 줄이기 위한 짧은 간격
     if (config.politeDelayMs) await sleep(config.politeDelayMs);
   }
-  if (pending.length) await sendDigest(config, pending, { fetchImpl });
+  if (pending.length) await sendDigest(config, pending, { store, fetchImpl, now });
+  // 보류분은 이번 체크 결과를 본 뒤에 보낸다 (방금 보낸 알림과 겹치지 않게)
+  if (!dry && !quiet) await flushHeld(config, { store, fetchImpl, log, now });
   return results;
 }
 
@@ -221,26 +232,37 @@ function scheduleDue(watcher, store, nowMs) {
   return due;
 }
 
-async function sendDigest(config, pending, { fetchImpl }) {
+// 전송 결과 반영: 성공이면 멘션 기록 + 보류분 정리, 전부 실패면 이전 신호로 되돌려 다음 체크에 다시 알린다.
+function settleAlert(store, r, { ping, before, now }) {
+  if (r.alerted) {
+    if (ping) recordMention(store, r.id, now);
+    if (r.available !== null) dropHeld(store, r.id);
+    return;
+  }
+  const cur = store?.get(r.id);
+  if (cur) store.set(r.id, { ...cur, signal: before?.signal });
+}
+
+async function sendDigest(config, pending, { store, fetchImpl, now }) {
   const notifiers = resolveNotifiers(config);
   const payload = pending.length === 1 ? buildAlertPayload(pending[0].watcher, pending[0].r, config) : buildDigestPayload(pending, langOf(config));
+  payload.mentions = pending.some((p) => p.ping) ? mentionsFromConfig(config) : undefined;
   if (!notifiers.length) {
     for (const { r } of pending) r.alertError = '알림 채널 없음';
     return;
   }
   const { delivered, errors } = await notifyAll(notifiers, payload, { fetchImpl, username: usernameOf(config) });
-  for (const { r } of pending) {
+  for (const { r, ping, before } of pending) {
     r.alerted = delivered > 0;
     if (errors.length) r.alertError = errors.join('; ');
+    settleAlert(store, r, { ping, before, now: now() });
   }
 }
 
 // 조용한 시간이면 보류, 빈도 제한이면 건너뜀. 지금 보내도 되면 true.
 function gateAlert(config, { store, watcher, r, quiet, now }) {
   if (quiet) {
-    const held = store?.get('__held')?.items || {};
-    held[r.id] = buildAlertPayload(watcher, r, config);
-    store?.set('__held', { items: held });
+    holdAlert(store, r.id, buildAlertPayload(watcher, r, config), { append: r.newRows?.length > 0 });
     r.alertError = '조용한 시간: 끝난 뒤 전송';
     return false;
   }
@@ -251,22 +273,7 @@ function gateAlert(config, { store, watcher, r, quiet, now }) {
   return true;
 }
 
-// 조용한 시간 동안 보류된 알림을 보낸다.
-export async function flushHeld(config, { store, fetchImpl, log = () => {}, now = () => Date.now() }) {
-  const items = store?.get('__held')?.items;
-  if (!items || !Object.keys(items).length) return 0;
-  const notifiers = resolveNotifiers(config);
-  if (!notifiers.length) return 0;
-  let sent = 0;
-  for (const payload of Object.values(items)) {
-    if (!takeRateSlot(config, store, now())) break;
-    const { delivered } = await notifyAll(notifiers, payload, { fetchImpl, username: usernameOf(config) });
-    if (delivered > 0) sent++;
-  }
-  store.set('__held', { items: {} });
-  log(`[quiet] 보류된 알림 ${sent}건 전송`);
-  return sent;
-}
+export { flushHeld };
 
 export function buildAlertPayload(watcher, r, config = {}) {
   const tpl = { ...(config.templates || {}), ...(watcher.template || {}) };

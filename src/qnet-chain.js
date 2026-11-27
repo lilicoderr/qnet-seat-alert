@@ -10,7 +10,9 @@ const AJAX = { ...FORM, 'X-Requested-With': 'XMLHttpRequest' };
 const ref = (id, g = '') => `${BASE}?id=${id}&gSite=Q&gId=${g}`;
 const CACHE = new Map();
 const BACKOFF = new Map();
-export const clearQnetCache = () => { CACHE.clear(); BACKOFF.clear(); };
+const RERUN = new Map(); // 낡은 ID/레이아웃 때문에 정적 단계를 마지막으로 다시 받은 시각
+export const clearQnetCache = () => { CACHE.clear(); BACKOFF.clear(); RERUN.clear(); };
+export const qnetCacheSize = () => CACHE.size + BACKOFF.size + RERUN.size;
 
 const post = (fetchText, id, data, headers, referer) => fetchText({
   url: `${BASE}?id=${id}&gSite=Q`, method: 'POST', body: new URLSearchParams(data).toString(), headers: { ...headers, Referer: referer },
@@ -92,7 +94,9 @@ export async function fetchQnetSeats(w, fetchText, { now = Date.now(), sleep = (
         BACKOFF.delete(key);
         return { text: rowsToHtml(rows, w), note: '' };
       } catch (e) {
-        if (!isStale(e) || attempt) throw e;
+        // 계속 깨져 있으면(레이아웃 변경) 매 체크마다 정적 단계를 다시 돌리지 않고 5분에 한 번만
+        if (!isStale(e) || attempt || now - (RERUN.get(key) ?? -Infinity) < NONE_TTL_MS) throw e;
+        RERUN.set(key, now);
         CACHE.delete(key); c = null; // 낡은 ID/레이아웃 변경일 수 있으니 정적 단계를 한 번만 새로 받는다
       }
     }

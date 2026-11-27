@@ -29,15 +29,16 @@ export function inQuietHours(cfg, now = new Date()) {
 const RATE_KEY = '__rate';
 
 // 보낼 수 있으면 true 로 기록까지 한다.
-export function takeRateSlot(config, store, nowMs = Date.now()) {
+// key: 이미지 전용 메시지는 따로 센다 (상태판이 좌석 알림의 몫을 다 써버리지 않도록).
+export function takeRateSlot(config, store, nowMs = Date.now(), key = RATE_KEY) {
   const max = Number(config.rateLimit?.maxPerHour) || 0;
   if (max <= 0 || !store) return true;
-  const sent = (store.get(RATE_KEY)?.sent || []).filter((t) => nowMs - t < 3600 * 1000);
+  const sent = (store.get(key)?.sent || []).filter((t) => nowMs - t < 3600 * 1000);
   if (sent.length >= max) {
-    store.set(RATE_KEY, { sent });
+    store.set(key, { sent });
     return false;
   }
-  store.set(RATE_KEY, { sent: [...sent, nowMs] });
+  store.set(key, { sent: [...sent, nowMs] });
   return true;
 }
 

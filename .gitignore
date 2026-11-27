@@ -4,5 +4,6 @@ node_modules/
 # 웹훅 URL·설정은 비밀 — 커밋 금지
 config.json
 state.json
+state.json.tmp
 .qnet-alert/
 history.jsonl

@@ -85,10 +85,10 @@ export async function notifyAllWithImage(notifiers, png, opts = {}) {
   return { delivered, errors };
 }
 
-// 표를 만들고 PNG 를 렌더한다 (전송은 하지 않음). 지문(fingerprint)은 항상 갱신한다.
+// 표를 만들고 PNG 를 렌더한다 (전송은 하지 않음). 지문(fingerprint)은 전송에 성공한 뒤 commit() 으로 갱신한다.
 //   attach: true 면 항상 렌더(알림에 붙일 때) / 아니면 every 이거나 표가 바뀐 때만.
 //   gate: 이미지 전용 메시지를 실제로 보내기 직전에 호출 (빈도 제한 슬롯 등). false 면 렌더/지문 갱신 없이 null.
-// 반환: { png, caption } 또는 null
+// 반환: { png, caption, commit } 또는 null
 export async function prepareTableImage({ config, watcher, r, store, now = Date.now(), renderImpl = renderTableImage, attach = false, gate }) {
   const ti = tableImageConfig(config);
   if (!ti || !r.ok || !r.rawText) return null;
@@ -100,7 +100,6 @@ export async function prepareTableImage({ config, watcher, r, store, now = Date.
   const changed = store?.get(key)?.fp !== fp;
   if (!attach && !(ti.every || changed)) return null;
   if (!attach && gate && !gate()) return null;
-  store?.set(key, { fp });
   const png = await renderImpl(table, { title: watcher.name || 'Q-Net', checkedAt: now, lang, chrome: findChrome({ configured: ti.chrome }), width: ti.width });
-  return { png, caption: `${formatKst(now)} KST${lang === 'ko' ? ' 기준' : ''} · ${watcher.name || 'Q-Net'}` };
+  return { png, caption: `${formatKst(now)} KST${lang === 'ko' ? ' 기준' : ''} · ${watcher.name || 'Q-Net'}`, commit: () => store?.set(key, { fp }) };
 }

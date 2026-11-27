@@ -86,7 +86,7 @@ test('prepareTableImage: 변화 시에만 / every 면 매번 / attach 면 항상
   const r = { id: 'w', ok: true, available: 6, rawText: html };
   const mk = (every, extra = {}) => ({ config: { tableImage: { every } }, watcher: { name: 'W' }, r, store: memoryStore(), now: AT, renderImpl, ...extra });
   const a = mk(false);
-  assert.ok(await prepareTableImage(a)); // 첫 관측 = 변화
+  (await prepareTableImage(a)).commit(); // 첫 관측 = 변화, 전송 성공 후 지문 확정
   assert.equal(await prepareTableImage(a), null); // 같은 표
   assert.ok(await prepareTableImage({ ...a, attach: true }));
   const b = mk(true);
