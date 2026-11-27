@@ -37,6 +37,7 @@ test('PNG 스모크: 유효한 PNG 가 만들어진다 (Chrome 이 있을 때)',
 test('renderPng: 헤더 문구가 담긴 HTML 이 렌더러로 전달된다', async () => {
   let seenHtml = '';
   const execFileImpl = (_bin, args, _o, cb) => {
+    if (args.includes('--dump-dom')) return cb(null, '<body data-qnet-h="500">');
     const shot = args.find((a) => a.startsWith('--screenshot=')).slice(13);
     const page = new URL(args.at(-1));
     seenHtml = fs.readFileSync(page, 'utf8');
@@ -97,4 +98,27 @@ test('tableImage 설정 검증', () => {
   assert.equal(validateConfig({ ...base, tableImage: { every: true } }).ok, true);
   assert.equal(validateConfig({ ...base, tableImage: { every: 'yes' } }).ok, false);
   assert.equal(validateConfig({ ...base, tableImage: 5 }).ok, false);
+});
+
+test('needsNoSandbox: root 로 도는 Linux 에서만', async () => {
+  const { needsNoSandbox } = await import('../src/render.js');
+  assert.equal(needsNoSandbox({ platform: 'linux', uid: 0 }), true);
+  assert.equal(needsNoSandbox({ platform: 'linux', uid: 1000 }), false);
+  assert.equal(needsNoSandbox({ platform: 'win32', uid: undefined }), false);
+  assert.equal(needsNoSandbox({ platform: 'darwin', uid: 0 }), false);
+});
+
+test('estimateHeight: 긴 장소명이 줄바꿈되면 높이가 커진다', async () => {
+  const { estimateHeight } = await import('../src/table.js');
+  const mk = (venue) => ({ columns: ['시험장', '빈자리'], rows: [{ cells: [venue, '3석'], available: 3 }] });
+  assert.ok(estimateHeight(mk('서울'.repeat(60))) > estimateHeight(mk('서울')) + 60);
+});
+
+test('렌더: 긴 장소명 행도 측정 높이로 잘리지 않는다 (Chrome 이 있을 때)', async (t) => {
+  const chrome = findChrome();
+  if (!chrome) return t.skip('Chrome/Edge 없음');
+  const mk = (venue) => ({ columns: ['시험장', '빈자리'], rows: [{ cells: [venue, '3석'], available: 3 }] });
+  const short = pngSize(await renderTableImage(mk('서울'), { title: 'T', checkedAt: AT, chrome }));
+  const long = pngSize(await renderTableImage(mk('서울강남시험장 '.repeat(40)), { title: 'T', checkedAt: AT, chrome }));
+  assert.ok(long.height > short.height + 100, `${long.height} vs ${short.height}`);
 });

@@ -87,7 +87,11 @@ ${body}
 <p class="foot">qnet-seat-alert · ${esc(l.footer)}</p></body></html>`;
 }
 
-// 렌더 높이 추정(px, 1x): 머리글 + 표
-export function estimateHeight(table) {
-  return 190 + 46 * (table.rows.length + 1);
+// 렌더 높이 추정(px, 1x). 실제 측정이 실패했을 때의 대비책: 긴 글이 줄바꿈되는 만큼 행 높이를 키운다.
+export function estimateHeight(table, width = 960) {
+  const n = Math.max(1, table.columns.length || Math.max(0, ...table.rows.map((r) => r.cells.length)));
+  const colW = Math.max(60, (width - 64) / n - 24);
+  const lines = (txt) => Math.max(1, Math.ceil([...String(txt)].reduce((w, ch) => w + (ch.charCodeAt(0) > 255 ? 18 : 10), 0) / colW));
+  const rowH = (cells) => 22 * Math.max(1, ...cells.map(lines)) + 24;
+  return 190 + rowH(table.columns) + table.rows.reduce((h, r) => h + rowH(r.cells), 0);
 }

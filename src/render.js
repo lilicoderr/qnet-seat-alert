@@ -34,20 +34,40 @@ export function pngSize(buf) {
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
 }
 
-export async function renderPng(html, { chrome, width = 960, height = 400, scale = 2, timeoutMs = 30000, execFileImpl = execFile } = {}) {
+// Chrome 샌드박스는 끄지 않는다. 단, Linux 에서 root 로 실행(컨테이너 등)하면 Chrome 이 샌드박스에서 시작을
+// 거부하므로 그 경우에만 --no-sandbox 를 붙인다.
+export function needsNoSandbox({ platform = process.platform, uid = process.getuid?.() } = {}) {
+  return platform === 'linux' && uid === 0;
+}
+
+const MEASURE_RE = /data-qnet-h="(\d+)"/;
+const MEASURE_SCRIPT = '<script>document.addEventListener("DOMContentLoaded",function(){document.body.setAttribute("data-qnet-h",String(Math.ceil(document.body.getBoundingClientRect().height)))})</script>';
+
+// execFile 을 프로미스로. stdout 을 돌려준다.
+const run = (execFileImpl, chrome, args, timeoutMs) => new Promise((resolve, reject) => {
+  execFileImpl(chrome, args, { timeout: timeoutMs, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (e, stdout) => (e ? reject(e) : resolve(String(stdout || ''))));
+});
+
+export async function renderPng(html, { chrome, width = 960, height = 400, scale = 2, timeoutMs = 30000, measure = true, execFileImpl = execFile } = {}) {
   if (!chrome) throw new Error('Chrome/Chromium/Edge 를 찾지 못했습니다. tableImage.chrome 또는 QNET_CHROME 에 경로를 지정하세요.');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qnet-img-'));
   const page = path.join(dir, 'table.html');
   const out = path.join(dir, 'table.png');
-  fs.writeFileSync(page, html, 'utf8');
-  const args = [
-    '--headless', '--disable-gpu', '--no-sandbox', '--hide-scrollbars', '--no-first-run',
-    `--user-data-dir=${path.join(dir, 'profile')}`, `--force-device-scale-factor=${scale}`,
-    `--window-size=${width},${height}`, '--default-background-color=FFFFFFFF',
-    `--screenshot=${out}`, pathToFileURL(page).href,
-  ];
+  const base = ['--headless', '--disable-gpu', ...(needsNoSandbox() ? ['--no-sandbox'] : []), '--hide-scrollbars', '--no-first-run', `--user-data-dir=${path.join(dir, 'profile')}`];
   try {
-    await new Promise((resolve, reject) => execFileImpl(chrome, args, { timeout: timeoutMs, windowsHide: true }, (e) => (e ? reject(e) : resolve())));
+    let h = height;
+    if (measure) {
+      // 1차: 실제 레이아웃 높이를 DOM 에서 측정 (긴 글이 줄바꿈돼도 잘리지 않게). 실패하면 추정 높이를 쓴다.
+      try {
+        fs.writeFileSync(page, html.replace('</body>', `${MEASURE_SCRIPT}</body>`), 'utf8');
+        const dom = await run(execFileImpl, chrome, [...base, '--dump-dom', `--window-size=${width},800`, pathToFileURL(page).href], timeoutMs);
+        const m = MEASURE_RE.exec(dom);
+        if (m && Number(m[1]) > 0) h = Number(m[1]);
+      } catch { /* 추정 높이 사용 */ }
+    }
+    fs.writeFileSync(page, html, 'utf8');
+    const args = [...base, `--force-device-scale-factor=${scale}`, `--window-size=${width},${h}`, '--default-background-color=FFFFFFFF', `--screenshot=${out}`, pathToFileURL(page).href];
+    await run(execFileImpl, chrome, args, timeoutMs);
     if (!fs.existsSync(out)) throw new Error('스크린샷 파일이 만들어지지 않았습니다.');
     return fs.readFileSync(out);
   } finally {
@@ -58,5 +78,5 @@ export async function renderPng(html, { chrome, width = 960, height = 400, scale
 // 표 -> PNG 버퍼
 export async function renderTableImage(table, { title, checkedAt, lang, chrome, width = 960, ...rest } = {}) {
   const { renderTableHtml, estimateHeight } = await import('./table.js');
-  return renderPng(renderTableHtml(table, { title, checkedAt, lang }), { chrome, width, height: estimateHeight(table), ...rest });
+  return renderPng(renderTableHtml(table, { title, checkedAt, lang }), { chrome, width, height: estimateHeight(table, width), ...rest });
 }
