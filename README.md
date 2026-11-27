@@ -16,9 +16,58 @@
 </div>
 
 > **Alert-only.** No auto-registration, no login, no macros — you register by hand.
-> Automated access to Q-Net may violate its terms of service, so use this for **personal checks only** and keep the polling interval generous (3–10 minutes).
+> Automated access to Q-Net may violate its terms of service, so use this for **personal checks only**. Prefer 3-10 minutes day to day; keep 1 minute (the preset) for short registration windows.
 
 [Q-Net](https://www.q-net.or.kr/) is Korea's national technical-qualification portal. Seats for popular exams (기능사 practical tests, etc.) vanish in minutes and reappear when someone cancels. This tool watches pages **you** point it at and tells you the moment a seat reopens.
+
+## 5-minute quickstart (Windows)
+
+한국어 안내(설명이 더 자세함): [README.ko.md](README.ko.md#5분-빠른-시작-windows)
+
+Needs [Node.js 20+](https://nodejs.org) and [Git](https://git-scm.com). No `npm install`. Run in PowerShell, replacing `건축도장` / `서울` with your 종목 and region.
+
+```powershell
+git clone https://github.com/lilicoderr/qnet-seat-alert
+cd qnet-seat-alert
+node bin/qnet-alert.js init --preset gineungsa --jongmok 건축도장 --region 서울
+copy .env.example .env
+notepad .env
+```
+
+`.env.example exists, skipped` is normal in a fresh clone. In `.env`, fill these two lines (value only, **no comment on the same line**):
+
+```text
+QNET_DISCORD_WEBHOOK=
+QNET_MENTION_USERS=
+```
+
+- **Webhook URL:** channel settings (gear) > **Integrations** > **Webhooks** > **New Webhook** > **Copy Webhook URL**. Treat it like a password.
+- **Your user ID** (optional, to be pinged): see [How to get a Discord user/role ID](#how-to-get-a-discord-userrole-id). Digits only, comma separated.
+
+```powershell
+node bin/qnet-alert.js doctor                 # checks setup, sends nothing; FAIL lines say what to fix
+node bin/qnet-alert.js test --channel discord # expect "[ OK ] discord#1" and a message (with your ping)
+node bin/qnet-alert.js --dry                  # one live check, sends nothing, saves no state
+.\start-watch.bat                             # keep watching (or double-click it)
+```
+
+The preset checks every minute and posts a seat-table image **on every check**; set `tableImage.every` to `false` in `config.json` to get it only when the table changes. Closing the window or letting the PC sleep stops the watcher. A misspelled 종목/지역 can only be detected while a matching exam is open (`--dry` then lists the valid names).
+
+### Start at logon (Task Scheduler)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows-task.ps1
+Start-ScheduledTask -TaskName qnet-seat-alert
+Get-ScheduledTask -TaskName qnet-seat-alert     # State: Running
+```
+
+It starts whenever you log on. Don't also run `start-watch.bat` (duplicate alerts). Re-run the script if you move the folder. Stop with `Stop-ScheduledTask -TaskName qnet-seat-alert`; remove with `Unregister-ScheduledTask -TaskName qnet-seat-alert -Confirm:$false`. If you get "Access is denied", use an administrator PowerShell.
+
+Offline check of the lookup flow on stored real pages (they only contain 건축도장/방수, so other 종목 report `FAIL` here):
+
+```powershell
+node bin/qnet-alert.js doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html
+```
 
 ## What can be watched without login
 
@@ -50,11 +99,6 @@ Watcher `type: "qnet"` runs these steps each check and feeds the normal alert, m
 
 The public list alone (step 1) also supports the `newrows` watcher, which alerts once when a new entry such as a 기능사 필기 window appears. The `기능사.*필기` pattern is a guess from the naming of the current 실기 entries and is unverified against a real 필기 listing.
 
-```bash
-qnet-alert init --preset gineungsa --jongmok 건축도장 --region 서울   # 1-minute interval, qnet + newrows watchers, table image
-qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # offline end-to-end check on stored real pages, nothing sent
-```
-
 Table images from the real fixtures (`scripts/make-real-sample-image.js`, `scripts/make-seat-sample-image.js`):
 
 ![real application list](docs/table-sample-real.png)
@@ -76,48 +120,26 @@ Table images from the real fixtures (`scripts/make-real-sample-image.js`, `scrip
 - **Helpful validation** — typos in keys or values get a "did you mean …?" hint
 - **Ops-friendly** — `--dry`, `--json` structured logs, Docker, a scheduled GitHub Actions example
 
-## Quick start
-
-```bash
-git clone https://github.com/lilicoderr/qnet-seat-alert && cd qnet-seat-alert
-node bin/qnet-alert.js init          # interactive: writes config.json + .env.example
-#   (or: cp config.example.json config.json and edit it)
-cp .env.example .env                 # fill QNET_DISCORD_WEBHOOK etc. — never commit .env
-
-node bin/qnet-alert.js --dry           # extract + decide, send nothing
-node bin/qnet-alert.js --test-webhook  # send a test message to every channel
-node bin/qnet-alert.js                 # poll every intervalMin (default 5, minimum 1)
-```
-
-Sample output:
-
-```text
-7:48:12 [전기기능사 서울 12/05] signal=0 (빈자리 0 (이전 미확인)) ·
-7:48:12 [전기기능사 서울 12/05] signal=3 (빈자리 열림: 3석 (이전 0)) 📨 알림보냄
-```
-
-### Docker
-
-```bash
-mkdir data && cp config.example.json data/config.json
-docker compose up -d --build        # injects QNET_* from .env
-```
-
-No server? See [`scheduled-example.yml.disabled`](.github/workflows/scheduled-example.yml.disabled) for a GitHub Actions cron variant.
-
 ## CLI
+
+Run as `node bin/qnet-alert.js <command/option>`. With none, it keeps watching every `intervalMin`.
 
 | Option | Description |
 |---|---|
+| `doctor [--offline] [--fixture f]` | Check config, `.env`, channels, mentions and reachability (sends nothing) |
+| `test [--channel discord] [--dry]` | Send a test alert, including configured mentions, to the chosen channel |
+| `export [--hours N] [--out f.csv]` | Export `historyPath` readings as CSV |
+| `dashboard [--port 8787]` | Read-only local dashboard (127.0.0.1) |
+| `init --preset gineungsa --jongmok <name> --region <area>` | Non-interactive 기능사 setup |
 | `--once` | Check once and exit |
-| `--dry` | Extract and decide without sending (no webhook needed) |
+| `--dry` | One check without sending or saving state (no webhook needed) |
 | `--list` | List configured watchers |
 | `--test-webhook` | Send a test message to every configured channel |
 | `--json` | One JSON object per log line (for log collectors) |
 | `--quiet` | Hide lines with no change and no error |
 | `--config <path>` | Config file (default `config.json`, or `$QNET_CONFIG`) |
 | `--metrics-port <n>` | Serve Prometheus `/metrics` (or set `metricsPort`) |
-| `qnet-alert stats [--hours 24] [--json]` | Text sparkline + min/max/open-rate per watcher from `historyPath` |
+| `stats [--hours 24] [--json]` | Text sparkline + min/max/open-rate per watcher from `historyPath` |
 | `init [--force]` | Interactive setup wizard (existing files are kept unless `--force`) |
 
 ## Configuration
@@ -177,9 +199,10 @@ When `mentions` (or the `QNET_MENTION_*` env vars) is set, every check that sees
 
 ```bash
 # .env (placeholders)
-QNET_MENTION_USERS=123456789012345678,234567890123456789   # Discord user IDs
-QNET_MENTION_ROLES=345678901234567890                      # Discord role IDs
-QNET_MENTION_SLACK=U0123ABCD                               # Slack member IDs
+# Discord user IDs, role IDs, Slack member IDs (keep comments on their own line)
+QNET_MENTION_USERS=123456789012345678,234567890123456789
+QNET_MENTION_ROLES=345678901234567890
+QNET_MENTION_SLACK=U0123ABCD
 ```
 
 Discord sends `<@USER_ID>` / `<@&ROLE_ID>` and sets `allowed_mentions` so **only those IDs** are pinged (never `@everyone`/`@here`). Slack gets `<@U...>`. Telegram does not support ID mentions.
@@ -239,24 +262,6 @@ poll ─▶ fetch(+backoff) ─▶ row filter ─▶ extract ─▶ decide(prev,
                                                      state.json (dedupe)
 ```
 
-```text
-bin/qnet-alert.js   CLI
-src/engine.js       one polling round: fetch, retry, alert
-src/filter.js       include/exclude/date row filters
-src/extract.js      seat / phrase / regex extraction
-src/watcher.js      previous vs current → alert or not
-src/notify.js       Discord/Slack/Telegram/webhook channels
-src/discord.js      Discord embeds + 429 retry
-src/store.js        last-signal persistence
-src/log.js          text/JSON logs
-src/env.js          .env loader
-src/validate.js     config validation (+ typo hints in suggest.js)
-src/template.js     alert message templates
-src/heartbeat.js    periodic "still watching" alert
-src/metrics.js      Prometheus text metrics server
-src/init.js         init wizard
-```
-
 ## Metrics
 
 With `metricsPort` (or `--metrics-port`), `GET /metrics` exposes Prometheus text format and `GET /healthz` returns `ok`.
@@ -292,7 +297,7 @@ Seat counts come from Q-Net's public venue lookup (see "What can be watched with
 
 ## Deployment
 
-systemd, Windows Task Scheduler, PM2 and Docker recipes: [docs/deploy.md](docs/deploy.md).
+Windows Task Scheduler is covered in the quickstart. systemd, PM2, Docker and GitHub Actions recipes: [docs/deploy.md](docs/deploy.md).
 
 ## Hot reload
 

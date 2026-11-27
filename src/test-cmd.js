@@ -9,6 +9,7 @@ import { resolveNotifiers, sendTo } from './notify.js';
 import { loadPlugins } from './plugins.js';
 import { describeNotifier } from './doctor.js';
 import { redactAll } from './redact.js';
+import { mentionsFromConfig } from './mentions.js';
 
 // 'discord' -> 해당 type 전부, 'discord#2' -> 그 type 의 두 번째
 export function selectChannels(notifiers, spec) {
@@ -33,14 +34,15 @@ export async function runTest(argv, { out = console.log, fetchImpl, env = proces
   const spec = flagValue(argv, '--channel');
   const picked = selectChannels(all, spec);
   if (!picked.length) {
-    out(all.length ? `No channel matches '${spec}'. Available: ${selectChannels(all).map((c) => c.label).join(', ')}` : 'No notification channels configured.');
+    out(all.length ? `No channel matches '${spec}'. Available: ${selectChannels(all).map((c) => c.label).join(', ')}` : 'No notification channels configured. → 해결: .env 에 QNET_DISCORD_WEBHOOK=<웹훅 URL> 을 넣고 프로젝트 폴더에서 실행하세요 (점검: node bin/qnet-alert.js doctor).');
     return 1;
   }
   let failed = 0;
+  const mentions = mentionsFromConfig(cfg, env); // 실제 알림처럼 멘션을 붙여 ID 도 함께 확인한다
   for (const { n, label } of picked) {
     if (argv.includes('--dry')) { out(`[dry] ${label}: ${describeNotifier(n)}`); continue; }
     try {
-      await sendTo(n, { title: 'qnet-alert test', description: 'If you can read this, this channel works.', color: 0x2b6cb0, linkLabel: 'Open' }, { fetchImpl, username: cfg.username });
+      await sendTo(n, { title: 'qnet-alert test', description: 'If you can read this, this channel works.', color: 0x2b6cb0, linkLabel: 'Open', mentions }, { fetchImpl, username: cfg.username });
       out(`[ OK ] ${label}`);
     } catch (e) {
       failed++;

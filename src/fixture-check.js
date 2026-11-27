@@ -23,7 +23,11 @@ export async function checkQnetFixtureDir(w, dir, now) {
     const r = await fetchQnetSeats(w, fetchText, { now });
     const t = parseTable(r.text, w);
     return [{ level: 'ok', msg: `${name}: qnet chain ran offline (${r.note || 'exam open'}); table image would show ${t.rows.length} venue row(s): ${t.columns.join(' | ')}` }];
-  } catch (e) { return [{ level: 'fail', msg: `${name}: ${e.message}` }]; }
+  } catch (e) {
+    // 저장된 샘플에는 일부 종목/지역만 있다: 실제 확인 방법을 함께 알려 준다
+    if (/^(종목|지역) '.*' 없음/.test(e.message)) return [{ level: 'fail', msg: `${name}: ${e.message} → 저장된 샘플 페이지에는 일부 종목(건축도장/방수)만 있어 다른 값은 오프라인으로 확인할 수 없습니다. 실제 확인: node bin/qnet-alert.js --dry (접수 중인 시험이 있을 때 오타면 가능한 이름 목록이 나옵니다)` }];
+    return [{ level: 'fail', msg: `${name}: ${e.message}` }];
+  }
 }
 
 // 반환: [{ level, msg }]

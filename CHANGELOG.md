@@ -2,6 +2,15 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [Unreleased]
+### Added
+- Windows 첫 실행: README 5분 빠른 시작, `start-watch.bat`, `test` 알림에 설정한 멘션 포함.
+- `doctor` 의 해결 안내 (`.env` 누락/`.env.txt`, 값이 든 `.env.example`, 잘못된 멘션 ID, JSON 오류 등).
+### Fixed
+- `deploy/windows-task.ps1`: Windows PowerShell 5.1 `-File` 실행 시 폴더 경로가 비는 문제, 로그온 트리거를 현재 사용자로 한정.
+- `--dry` 가 상태를 저장해 이후 첫 알림이 사라질 수 있던 문제. 값을 못 읽은 이유(종목 오타 등)를 로그에 표시.
+- README 의 `.env` 예시에서 값 뒤 주석 제거 (주석까지 값으로 읽혔음).
+
 ## [1.7.1] — 2026-11-27
 ### Changed
 - qnet watcher politeness: pause between result pages (`pageDelayMs`, default 1500 ms), `maxPages` default 5, 429/5xx backoff (2 to 16 min, checks skipped), static steps re-run only on layout/stale-id errors, "no open exam" cached 5 min (rechecked every check within 5 min of an opening). `doctor`/validate warn when `region` is missing.

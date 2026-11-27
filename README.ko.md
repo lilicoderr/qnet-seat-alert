@@ -16,7 +16,111 @@
 </div>
 
 > **알림 전용입니다.** 자동 접수·로그인·매크로는 하지 않습니다. 접수는 사람이 직접 합니다.
-> Q-Net 자동 조회는 이용약관에 저촉될 수 있으니 **개인 확인 용도로만**, 폴링 간격을 넉넉히(3~10분) 두세요.
+> Q-Net 자동 조회는 이용약관에 저촉될 수 있으니 **개인 확인 용도로만** 쓰세요. 평소에는 3~10분 간격을, 1분(프리셋 기본)은 짧은 접수 기간에만 권장합니다.
+
+## 5분 빠른 시작 (Windows)
+
+PowerShell 에서 위에서부터 그대로 실행합니다. 예시는 `건축도장` / `서울` 이니 본인의 종목과 지역으로 바꾸세요.
+
+**0. 설치** (처음 한 번): [Node.js 20 이상](https://nodejs.org)과 [Git](https://git-scm.com)을 설치하고 PowerShell 을 새로 엽니다. `node --version` 이 `v20` 이상이면 됩니다. `npm install` 은 필요 없습니다.
+
+**1. 받기**
+
+```powershell
+git clone https://github.com/lilicoderr/qnet-seat-alert
+cd qnet-seat-alert
+```
+
+이후 명령은 모두 이 폴더에서 실행합니다 (`.env` 와 `config.json` 을 여기서 읽습니다).
+
+**2. 종목과 지역 설정**
+
+```powershell
+node bin/qnet-alert.js init --preset gineungsa --jongmok 건축도장 --region 서울
+```
+
+- `--jongmok`: 종목 이름의 일부 (예: `전기기능사`). `--region`: 시도 이름의 일부 (예: `서울`, `대구`).
+- `config.json` 이 만들어집니다. `.env.example exists, skipped` 는 정상입니다. 설정을 다시 만들려면 `--force` 를 붙입니다 (`.env.example` 도 새로 씁니다. `.env` 는 건드리지 않습니다).
+
+**3. Discord 웹훅과 내 ID 넣기**
+
+```powershell
+copy .env.example .env
+notepad .env
+```
+
+`.env` 에서 아래 두 줄을 채우고 저장합니다. `=` 뒤에 값만 적고, **같은 줄에 설명이나 `#` 주석을 달지 마세요.** (이미 `.env` 를 만들었다면 `copy` 를 다시 하지 마세요. 내용이 덮어써집니다.)
+
+```text
+QNET_DISCORD_WEBHOOK=
+QNET_MENTION_USERS=
+```
+
+- **웹훅 URL**: Discord 에서 알림 받을 채널의 톱니바퀴(채널 편집) > **연동** > **웹후크** > **새 웹후크** > **웹후크 URL 복사**. 서버 관리 권한이 없으면 내 서버를 하나 만들면 됩니다.
+- **내 사용자 ID** (핑 받기, 선택): **사용자 설정 > 고급 > 개발자 모드**를 켜고, 내 프로필/이름을 우클릭 > **사용자 ID 복사**. 숫자만 넣고, 여러 명은 쉼표로 구분합니다. 닉네임은 안 됩니다.
+- 웹훅 URL 은 비밀번호와 같습니다. 채팅, 이슈, 스크린샷에 올리지 마세요. `.env` 는 git 에서 제외됩니다.
+
+**4. 점검**
+
+```powershell
+node bin/qnet-alert.js doctor
+```
+
+`[FAIL]` 줄의 `→ 해결:` 안내대로 고치고 다시 실행합니다. 설정, `.env`, 채널 형식, 멘션 ID, Q-Net 접속을 확인하며 알림은 보내지 않습니다. (네트워크 점검을 빼려면 `--offline`.) 종목 이름은 여기서 확인하지 않습니다 (6번 참고).
+
+**5. Discord 테스트**
+
+```powershell
+node bin/qnet-alert.js test --channel discord
+```
+
+`[ OK ] discord#1` 이 나오고 채널에 `qnet-alert test` 메시지가 오면 성공입니다. `QNET_MENTION_USERS` 를 넣었다면 이 메시지에서 핑이 오는지도 확인하세요.
+
+**6. 감시 시작**
+
+```powershell
+node bin/qnet-alert.js --dry     # 한 번만 조회, 전송 없음, 상태 저장 없음
+.\start-watch.bat                # 계속 감시 (탐색기에서 더블클릭해도 됨)
+```
+
+- 접수 중인 시험이 있을 때 종목/지역에 오타가 있으면 `--dry` 출력에 가능한 이름 목록이 나옵니다. 접수 중인 시험이 없으면 `signal=0` 이며 오타는 이때 확인되지 않습니다.
+- 프리셋은 1분마다 확인하고 `tableImage.every: true` 라서 **체크마다 현황표 이미지를 Discord 에 올립니다**. 표가 바뀔 때만 받으려면 `config.json` 에서 `"every": false` 로 바꾸세요 (이미지에는 Chrome 또는 Edge 를 사용).
+- 창을 닫거나 Ctrl+C 를 누르면 감시가 멈춥니다. PC 가 절전 상태여도 멈춥니다.
+
+### 로그인할 때 자동 실행 (작업 스케줄러)
+
+위 6번까지 확인한 뒤, 프로젝트 폴더에서:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\windows-task.ps1
+Start-ScheduledTask -TaskName qnet-seat-alert
+Get-ScheduledTask -TaskName qnet-seat-alert     # State 가 Running 이면 감시 중
+```
+
+- 내 계정으로 로그인할 때마다 시작합니다. 콘솔 창이 보이면 닫지 마세요. 폴더를 옮기면 스크립트를 다시 실행합니다.
+- `start-watch.bat` 과 **동시에 실행하지 마세요** (알림이 두 번 옵니다).
+- 중지: `Stop-ScheduledTask -TaskName qnet-seat-alert`
+- 삭제: `Unregister-ScheduledTask -TaskName qnet-seat-alert -Confirm:$false`
+- "액세스가 거부되었습니다" 가 나오면 PowerShell 을 관리자 권한으로 열고 다시 실행합니다.
+
+### 안 될 때
+
+| 증상 | 해결 |
+|---|---|
+| `node` 를 찾을 수 없음 | Node.js 설치 후 PowerShell 을 새로 열기 |
+| `no notification channels` | 파일 이름이 `.env` 인지 (`.env.txt` 아님), 프로젝트 폴더에 있는지 확인 |
+| `test` 가 `[FAIL] ... (401)` 또는 `(404)` | 웹훅이 삭제됐거나 URL 이 잘림. 새로 복사 |
+| 메시지는 오는데 핑이 없음 | `QNET_MENTION_USERS` 가 숫자 ID 인지 `doctor` 로 확인, Discord 알림 설정 확인 |
+| `종목 '...' 없음` / `지역 '...' 없음` | 메시지에 나온 가능한 이름으로 2번을 `--force` 와 함께 다시 실행 |
+| 이미지만 안 옴 | Chrome/Edge 설치 확인 또는 `.env` 의 `QNET_CHROME` 지정 |
+
+### 인터넷 없이 흐름 확인 (선택)
+
+저장해 둔 실제 페이지로 조회 흐름을 돌립니다. 저장본에는 `건축도장`/`방수` 종목만 있어, 다른 종목으로 설정했다면 `FAIL` 이 정상입니다.
+
+```powershell
+node bin/qnet-alert.js doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html
+```
 
 ## 로그인 없이 감시할 수 있는 것
 
@@ -48,11 +152,6 @@
 
 1단계 목록만으로는 `newrows` 감시가 가능하며, 기능사 필기 같은 새 항목이 처음 나타날 때 한 번 알립니다. `기능사.*필기` 패턴은 현재 실기 항목의 이름 형식에서 추정한 값이며 실제 필기 목록으로는 확인하지 못했습니다.
 
-```bash
-qnet-alert init --preset gineungsa --jongmok 건축도장 --region 서울   # 1분 간격, qnet + newrows 감시, 표 이미지
-qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # 저장된 실제 페이지로 오프라인 종단 점검 (전송 없음)
-```
-
 실제 fixture 로 만든 표 이미지 (`scripts/make-real-sample-image.js`, `scripts/make-seat-sample-image.js`):
 
 ![실제 접수 목록](docs/table-sample-real.png)
@@ -74,48 +173,26 @@ qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # 저�
 - **Prometheus 메트릭** — 선택적 `/metrics`, `/healthz` (기본 127.0.0.1 바인딩)
 - **친절한 설정 검증** — 오타 키/값은 "혹시 ○○ 말씀이세요?" 로 안내
 
-## 빠른 시작
-
-```bash
-git clone https://github.com/lilicoderr/qnet-seat-alert && cd qnet-seat-alert
-node bin/qnet-alert.js init          # 대화형으로 config.json + .env.example 생성
-#   (또는 cp config.example.json config.json 후 직접 수정)
-cp .env.example .env                 # QNET_DISCORD_WEBHOOK 등 채우기
-
-node bin/qnet-alert.js --dry           # 알림 없이 추출 결과만 확인
-node bin/qnet-alert.js --test-webhook  # 모든 채널에 테스트 메시지
-node bin/qnet-alert.js                 # intervalMin 마다 반복 (기본 5분, 최소 1분)
-```
-
-실행 예:
-
-```text
-7:48:12 [전기기능사 서울 12/05] signal=0 (빈자리 0 (이전 미확인)) ·
-7:48:12 [전기기능사 서울 12/05] signal=3 (빈자리 열림: 3석 (이전 0)) 📨 알림보냄
-```
-
-### Docker
-
-```bash
-mkdir data && cp config.example.json data/config.json
-docker compose up -d --build        # .env 의 QNET_* 값을 주입
-```
-
-서버가 없다면 [`scheduled-example.yml.disabled`](.github/workflows/scheduled-example.yml.disabled) 를 참고해 GitHub Actions 크론으로 돌릴 수도 있습니다.
-
 ## CLI
+
+`node bin/qnet-alert.js <명령/옵션>` 형태로 실행합니다. 아무것도 없으면 `intervalMin` 간격으로 계속 감시합니다.
 
 | 옵션 | 설명 |
 |---|---|
+| `doctor [--offline] [--fixture f]` | 설정, `.env`, 채널, 멘션, 접속 점검 (전송 없음) |
+| `test [--channel discord] [--dry]` | 선택한 채널에만 테스트 알림 (설정한 멘션 포함) |
+| `export [--hours N] [--out f.csv]` | `historyPath` 이력을 CSV 로 내보내기 |
+| `dashboard [--port 8787]` | 읽기 전용 로컬 대시보드 (127.0.0.1) |
+| `init --preset gineungsa --jongmok <종목> --region <지역>` | 질문 없이 기능사 감시 설정 생성 |
 | `--once` | 1회 검사 후 종료 |
-| `--dry` | 알림을 보내지 않고 추출·판단만 출력 (웹훅 불필요) |
+| `--dry` | 한 번 조회해 결과만 출력. 전송과 상태 저장 없음 (웹훅 불필요) |
 | `--list` | 설정된 watcher 목록 |
 | `--test-webhook` | 설정된 모든 알림 채널에 테스트 전송 |
 | `--json` | 한 줄 JSON 로그 (로그 수집기용) |
 | `--quiet` | 변화·오류가 없는 줄은 출력 생략 |
 | `--config <path>` | 설정 파일 (기본 `config.json`, 또는 `$QNET_CONFIG`) |
 | `--metrics-port <n>` | Prometheus `/metrics` 서버 열기 (또는 `metricsPort`) |
-| `qnet-alert stats [--hours 24] [--json]` | `historyPath` 이력으로 워처별 스파크라인·최소/최대/빈자리 비율 출력 |
+| `stats [--hours 24] [--json]` | `historyPath` 이력으로 워처별 스파크라인·최소/최대/빈자리 비율 출력 |
 | `init [--force]` | 대화형 설정 마법사 (기존 파일은 `--force` 없으면 보존) |
 
 ## 설정
@@ -166,9 +243,10 @@ docker compose up -d --build        # .env 의 QNET_* 값을 주입
 
 ```bash
 # .env (자리표시자)
-QNET_MENTION_USERS=123456789012345678,234567890123456789   # Discord 사용자 ID
-QNET_MENTION_ROLES=345678901234567890                      # Discord 역할 ID
-QNET_MENTION_SLACK=U0123ABCD                               # Slack 멤버 ID
+# Discord 사용자 ID, 역할 ID, Slack 멤버 ID (주석은 이렇게 별도 줄에)
+QNET_MENTION_USERS=123456789012345678,234567890123456789
+QNET_MENTION_ROLES=345678901234567890
+QNET_MENTION_SLACK=U0123ABCD
 ```
 
 Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **해당 ID 만** 알림이 가게 합니다 (`@everyone`/`@here` 불가). Slack 은 `<@U...>` 를 씁니다.
@@ -227,24 +305,6 @@ poll ─▶ fetch(+backoff) ─▶ row filter ─▶ extract ─▶ decide(prev,
                                                      state.json (중복 억제)
 ```
 
-```text
-bin/qnet-alert.js   CLI
-src/engine.js       폴링 1회: 가져오기·재시도·알림
-src/filter.js       include/exclude/날짜 행 필터
-src/extract.js      잔여석·문구·정규식 추출
-src/watcher.js      이전↔현재 비교 → 알림 여부
-src/notify.js       Discord/Slack/Telegram/웹훅 채널
-src/discord.js      Discord 임베드 + 429 재시도
-src/store.js        마지막 신호 저장
-src/log.js          텍스트/JSON 로그
-src/env.js          .env 로더
-src/validate.js     설정 검증 (+ 오타 제안: suggest.js)
-src/template.js     알림 문구 템플릿
-src/heartbeat.js    주기적 "감시 중" 알림
-src/metrics.js      Prometheus 텍스트 메트릭 서버
-src/init.js         init 마법사
-```
-
 ## 테스트
 
 ```bash
@@ -261,7 +321,7 @@ npm test      # node --test — 네트워크 없이 fetch 주입으로 검증
 
 ## 배포
 
-systemd, Windows 작업 스케줄러, PM2, Docker 설정은 [docs/deploy.md](docs/deploy.md) 참고.
+Windows 작업 스케줄러는 위 빠른 시작을 보세요. systemd, PM2, Docker, GitHub Actions 설정은 [docs/deploy.md](docs/deploy.md) 참고.
 
 ## 핫 리로드
 

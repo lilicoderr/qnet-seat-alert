@@ -33,5 +33,6 @@ export function createLogger({ json = false, quiet = false, out = console.log, n
 export function formatLine(r) {
   const flag = r.alerted ? '📨 알림보냄' : r.shouldAlert ? (r.dry ? '🔕 알림 대상(dry-run: 전송 생략)' : '⚠️ 알림실패') : '·';
   const sig = r.ok ? `signal=${r.signal}` : `오류: ${r.error}`;
-  return `[${r.name || r.id}] ${sig} ${r.reason ? `(${r.reason})` : ''} ${flag}${r.alertError ? ` [${r.alertError}]` : ''}`;
+  const why = r.ok && r.signal === null && r.detail ? ` : ${r.detail}` : ''; // 값을 못 읽은 이유 (예: 종목 오타)
+  return `[${r.name || r.id}] ${sig} ${r.reason ? `(${r.reason})` : ''}${why} ${flag}${r.alertError ? ` [${r.alertError}]` : ''}`;
 }

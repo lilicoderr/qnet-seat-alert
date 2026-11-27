@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { runOnce, sleep } from '../src/engine.js';
-import { createStore } from '../src/store.js';
+import { createStore, memoryStore } from '../src/store.js';
 import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
 import { nextDelayMs, DEFAULT_JITTER } from '../src/polite.js';
 import { loadEnvFile } from '../src/env.js';
@@ -68,7 +68,7 @@ async function main() {
   const configPath = path.resolve(args.config);
   if (!fs.existsSync(configPath)) {
     console.error(`설정 파일이 없습니다: ${configPath}`);
-    console.error('config.example.json 을 복사해 config.json 으로 만들고 webhookUrl·watchers 를 채우세요.');
+    console.error('→ 해결: 프로젝트 폴더에서 node bin/qnet-alert.js init --preset gineungsa --jongmok <종목> --region <지역>');
     process.exit(1);
   }
   let config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -121,7 +121,8 @@ async function main() {
     return;
   }
 
-  const store = createStore(config.statePath);
+  // --dry 는 상태를 저장하지 않는다: 저장하면 이후 실제 실행의 첫 '열림' 알림이 사라질 수 있다
+  const store = args.dry ? memoryStore() : createStore(config.statePath);
   const watchers = (config.watchers || []).filter((w) => w.enabled !== false);
   if (watchers.length === 0) {
     console.error('활성화된 watcher 가 없습니다.');
