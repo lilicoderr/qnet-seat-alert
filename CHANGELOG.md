@@ -2,6 +2,18 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [1.7.0] — 2026-11-27
+### Added
+- `type: "qnet"` watcher: read-only per-venue capacity / remaining seats from Q-Net's public lookup chain (rcv00301 -> 00302 -> 00303 -> s02 -> s03), verified live without login/cookies/CAPTCHA (9 requests). Static steps cached (`refreshMin`), only the venue table is re-polled each check. Handles no open exam, not open yet, maintenance, EUC-KR, layout changes (parser-broken alert naming the problem).
+- Step-by-step real fixtures and parser tests; `doctor|test --fixture` runs the qnet chain offline.
+- `init --preset gineungsa --jongmok X --region Y` now includes the qnet seat watcher.
+### Fixed
+- `qnet-alert init --preset` was not wired into the CLI in 1.6.0 (only the function existed).
+### Changed
+- README: the claim that seats need login is removed; the verified flow, its cost and its open points are documented.
+### Known limits
+- Only `마감` cells were seen live, never a numeric remaining value; 필기 exams were not open to test.
+
 ## [1.6.0] — 2026-11-27
 ### Added
 - Real public fixture `test/fixtures/real/rcv00301-2026-11-27.html` (sanitized) and tests; real findings documented in a new README section "What can be watched without login" (en/ko), with a table image generated from it.

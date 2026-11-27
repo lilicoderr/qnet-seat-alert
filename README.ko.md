@@ -20,26 +20,41 @@
 
 ## 로그인 없이 감시할 수 있는 것
 
-2026-11-27 실제 공개 페이지로 확인한 결과입니다 (HTTP 200, UTF-8, 로그인 불필요).
+2026-11-27 에 로그인 없이, 쿠키 없이, CAPTCHA 없이 평범한 익명 요청으로 실제 확인했습니다 (HTTP 200). 브라우저에서 방문자가 쓰는 조회(원서접수현황 > 현황보기)와 같은 읽기 전용 요청이며, 접수 자체(`rcv202.do`)는 절대 호출하지 않습니다.
 
-| 공개 페이지 | 보이는 내용 | 사용 가능? |
+| 단계 | 요청 | 결과 |
 |---|---|---|
-| [`rcv003.do?gSite=Q&id=rcv00301`](https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301) (원서접수현황) | 현재 접수 중인 시험의 이름/회차와 접수기간 (예: `2026년 상시 기능사 107회 실기`) | 가능: `newrows` 감시 + 현황표 이미지 |
-| 시험일정 페이지 (`crf021.do`) | 표를 브라우저의 JavaScript 가 만들어서 원본 HTML 에는 행이 없음 | 불가 (스크립트 실행 없이는 파싱 불가) |
-| 잔여석 / 좌석 수 | 로그인 후 시험장별로만 표시 | **불가능.** 이 도구는 로그인하지 않습니다 |
+| 1 | `GET rcv003.do?id=rcv00301` | 접수 중인 시험과 접수기간. 각 행의 현황보기 버튼에 계획 ID 가 들어 있음 |
+| 2 | `POST rcv003.do?id=rcv00302` | 그 시험의 종목 목록 (예: 건축도장기능사 / 방수기능사) |
+| 3 | `POST rcv003.do?id=rcv00303` + `rcv00303s02` | 지역 목록, 응시세부유형 (`rcv00303s02` 는 **EUC-KR** 로 응답) |
+| 4 | `POST rcv003.do?id=rcv00303s03` | 시험장별 지역, 기관명, 시험일자, 입실시간, 시험장소, 정원, 현재접수 가능인원 |
 
-따라서 기능사에서 정직하게 할 수 있는 일은 **공개 목록에 새 기능사 필기 접수가 처음 나타나면 한 번 알리고, 1분마다 KST 시각 헤더가 붙은 접수 목록 표 이미지를 올리는 것**입니다. 남은 자리가 있는지는 알 수 없습니다. 페이지의 이름 형식은 `2026년 상시 기능사 107회 실기` 이므로 필기 항목은 `기능사 ... 필기` 를 포함할 것으로 보고 패턴 `기능사.*필기` 를 썼습니다 (다음 실제 목록으로 확인 필요, 유일한 추정입니다).
+실제로 정원(예: 18)과 현재접수 가능인원이 있는 시험장 행을 확인했습니다. 다만 그 시점에는 모든 행이 `마감` 이어서 **숫자로 된 잔여석 값은 아직 직접 보지 못했습니다**. 파서는 `마감` 또는 숫자만 인식하고, 그 밖의 문구는 추측하지 않고 "파서 이상" 알림을 냅니다. 미확인: 필기 시험(당시 접수 중인 것이 없었음), 확인에 쓴 종목/지역 외의 경우. 연간 시험일정 페이지(`crf021.do`)는 JavaScript 로 그려져 파싱할 수 없습니다.
 
-```bash
-qnet-alert init --preset gineungsa      # 1분 간격, newrows 감시, 표 이미지
-qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # 오프라인 종단 점검 (전송 없음)
+`type: "qnet"` 감시는 이 단계를 체크마다 실행해 기존 알림/멘션/표 이미지로 연결합니다.
+
+```json
+{ "name": "건축도장 잔여석", "type": "qnet", "url": "https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301",
+  "examPattern": "기능사", "jongmok": "건축도장", "region": "서울", "dateFrom": "2026-12-01" }
 ```
 
-`newrows` 는 본 적 있는 항목을 모두 기억해 새 항목마다 정확히 한 번만 알립니다 (첫 실행은 조용한 기준선, `alertOnFirst: true` 로 변경). Q-Net 점검 페이지(HTTP 5xx, 또는 200 으로 내려오는 짧은 "점검" 안내)는 수집 실패로 처리되어 저장된 상태를 덮어쓰지 않으며, EUC-KR/UTF-8 모두 디코드합니다.
+- `examPattern`: 시험 이름 정규식 (기본 `기능사`). `jongmok`: 필수, 종목 이름 일부. `region`: 시도 이름 일부 (Q-Net 에도 필터로 전달). `recptCd`: 응시자유형, 기본 `01`(필기합격자). `include`/`exclude`/`dateFrom`/`dateTo`: 행 필터. `showClosed: false`: 접수 가능한 시험장만 요청 (요청은 줄지만 전부 마감이면 이미지가 비어 있음).
+- **체크당 비용:** 1~3단계는 `refreshMin`(기본 30분) 동안 캐시되므로 한 번의 체크는 4단계 결과 페이지 수만큼(한 페이지 10곳, 한 종목 전국 2페이지, `region` 을 주면 더 적음)의 요청입니다. 맞는 시험이 접수 중이 아니면 1단계 요청 한 번뿐이고 잔여석 0 으로 처리합니다. 1분 간격이면 분당 대략 1~3 요청이며, `region` 으로 줄일 수 있습니다.
+- 시험이 끝났거나 응답이 달라 보이면 캐시를 한 번 버리고 재시도합니다. 구조를 알 수 없으면 무엇이 없는지(예: 유효한 종목 이름)를 알려 주는 파서 이상 알림을 보냅니다.
+- 점검 페이지, HTTP 5xx, EUC-KR/UTF-8 본문을 처리합니다.
 
-실제 fixture 로 만든 표 이미지 (`node scripts/make-real-sample-image.js`):
+1단계 목록만으로는 `newrows` 감시가 가능하며, 기능사 필기 같은 새 항목이 처음 나타날 때 한 번 알립니다. `기능사.*필기` 패턴은 현재 실기 항목의 이름 형식에서 추정한 값이며 실제 필기 목록으로는 확인하지 못했습니다.
 
-![실제 현황표 이미지](docs/table-sample-real.png)
+```bash
+qnet-alert init --preset gineungsa --jongmok 건축도장 --region 서울   # 1분 간격, qnet + newrows 감시, 표 이미지
+qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # 저장된 실제 페이지로 오프라인 종단 점검 (전송 없음)
+```
+
+실제 fixture 로 만든 표 이미지 (`scripts/make-real-sample-image.js`, `scripts/make-seat-sample-image.js`):
+
+![실제 접수 목록](docs/table-sample-real.png)
+
+![실제 잔여석 표](docs/table-sample-seats.png)
 
 ## 특징
 
@@ -184,7 +199,7 @@ Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **
 |---|---|
 | `name`, `id` | 표시 이름 / 상태 저장용 식별자 |
 | `url`, `linkUrl` | 가져올 URL / 알림에 붙일 링크 |
-| `type` | `seats` · `jsonseats` · `contains` · `regex` · `newrows` |
+| `type` | `seats` · `jsonseats` · `contains` · `regex` · `newrows` · `qnet` |
 | `alertOn` | `open`(기본) · `increase` · `change` · `available` |
 | `include` / `exclude` | 행 필터 — 모든 `include` 키워드를 포함하고 `exclude` 는 없는 행만 사용 |
 | `dateFrom` / `dateTo` | 행의 날짜(`2026.12.05`, `2026-12-05`, `2026년 12월 5일`)가 `YYYY-MM-DD` 범위일 때만 |
@@ -198,6 +213,7 @@ Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **
 | `jsonseats` | JSON 응답의 정원/접수/잔여 필드로 계산 (`fields` 로 키 지정) |
 | `contains` | 문구(`needle`) 등장/사라짐 감지 (`alertWhen`: present/absent/change) |
 | `regex` | `pattern` 1번 그룹 값 변화 감지 |
+| `qnet` | Q-Net 공개 현황보기 페이지에서 시험장별 정원/잔여석을 읽기 전용으로 다단계 조회 (`examPattern`, `jongmok`, `region` ...) |
 | `newrows` | 공개 원서접수현황 목록에서 `pattern`/`needle` 에 맞는 새 행이 생기면 한 번만 알림 (`alertOnFirst`: 첫 실행에 이미 있는 행도 알림) |
 
 ## 동작 방식
@@ -234,7 +250,7 @@ npm test      # node --test — 네트워크 없이 fetch 주입으로 검증
 
 ## 한계
 
-Q-Net 의 정확한 잔여석 엔드포인트는 로그인·세션이 필요하거나 구조가 바뀔 수 있습니다. 이 도구는 **열람 가능한 URL 과 추출 규칙을 사용자가 지정**하는 범용 감시기이며, 자동 접수는 의도적으로 지원하지 않습니다.
+잔여석은 Q-Net 공개 시험장 조회("로그인 없이 감시할 수 있는 것" 참고)에서 읽습니다. 숫자 잔여석 값은 아직 직접 보지 못했고(당시 모든 시험장이 마감) 필기 목록도 미확인입니다. 이 도구는 로그인도 접수도 하지 않으며 자동 접수는 의도적으로 지원하지 않습니다.
 
 ## 기여
 

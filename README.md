@@ -22,26 +22,41 @@
 
 ## What can be watched without login
 
-Checked against the live public page on 2026-11-27 (HTTP 200, UTF-8, no login):
+Verified live on 2026-11-27 with plain anonymous requests (no login, no cookies sent, no CAPTCHA, HTTP 200). This is the same read-only lookup a visitor uses in the browser (원서접수현황 > 현황보기). Nothing under `rcv202.do` (the application itself) is ever called.
 
-| Public page | What it shows | Usable? |
+| Step | Request | Result |
 |---|---|---|
-| [`rcv003.do?gSite=Q&id=rcv00301`](https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301) (원서접수현황) | Exams whose application window is currently open: exam name/round and 접수기간 (e.g. `2026년 상시 기능사 107회 실기`) | Yes: `newrows` watcher + table image |
-| Schedule pages (`crf021.do`, 연간/월간 시험일정) | The schedule tables are built by JavaScript in the browser, so the raw HTML has no rows | No (not parseable without running scripts) |
-| Seat counts / remaining seats (잔여석) | Only after login, per exam venue | **Not possible here.** This tool never logs in |
+| 1 | `GET rcv003.do?id=rcv00301` | Open exams and their 접수기간; each row's 현황보기 button carries the plan ids |
+| 2 | `POST rcv003.do?id=rcv00302` | The 종목 (qualification) list of that exam, e.g. 건축도장기능사 / 방수기능사 |
+| 3 | `POST rcv003.do?id=rcv00303` + `rcv00303s02` | Region list and applicant-type detail (`rcv00303s02` answers in **EUC-KR**) |
+| 4 | `POST rcv003.do?id=rcv00303s03` | Per venue: 지역, 기관명, 시험일자, 입실시간, 시험장소, 정원, 현재접수 가능인원 |
 
-So the honest scope for 기능사 is: **alert once when a new 기능사 필기 (written exam) application window appears in the public list, and post a table of the listed windows with a KST time header every minute.** It cannot tell you whether seats are left. Names on the page are like `2026년 상시 기능사 107회 실기`; a written-exam entry should contain `기능사 ... 필기`, hence the pattern `기능사.*필기` (verify against the next real listing; the pattern is the only guess here).
+Seen live: real venue rows with 정원 (e.g. 18) and 현재접수 가능인원. At that moment every row read `마감` (full), so **a numeric remaining-seat value has not been observed yet**. The parser accepts `마감` or a number and raises a "parser broke" alert for any other text instead of guessing. Not verified: 필기 exams (none were open), other 종목/regions beyond the one used. The annual schedule pages (`crf021.do`) are rendered by JavaScript and cannot be parsed.
 
-```bash
-qnet-alert init --preset gineungsa      # 1-minute interval, newrows watcher, table image
-qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # offline end-to-end check, nothing sent
+Watcher `type: "qnet"` runs these steps each check and feeds the normal alert, mention and table-image pipeline:
+
+```json
+{ "name": "건축도장 잔여석", "type": "qnet", "url": "https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301",
+  "examPattern": "기능사", "jongmok": "건축도장", "region": "서울", "dateFrom": "2026-12-01" }
 ```
 
-The `newrows` watcher (`pattern` regex or `needle` substring) remembers every matching entry it has seen, so each new entry alerts exactly once (first run is a silent baseline unless `alertOnFirst: true`). Q-Net maintenance pages (HTTP 5xx, or a short "점검" page with 200) count as fetch failures and never overwrite the saved state; EUC-KR and UTF-8 responses are both decoded.
+- `examPattern`: regex on the exam name (default `기능사`). `jongmok`: required, part of the 종목 name. `region`: part of the 시도 name, also sent to Q-Net as the filter. `recptCd`: applicant type, default `01` (필기합격자). `include`/`exclude`/`dateFrom`/`dateTo`: row filters. `showClosed: false`: ask only for open venues (cheaper, but the image is empty while everything is full).
+- **Cost per check:** steps 1-3 are cached for `refreshMin` (default 30) minutes, so a check is one request per result page of step 4 (10 venues per page; 2 pages nationwide for one 종목, fewer with `region`). While no matching exam is open a check is only the step-1 request and reports 0 seats. 1-minute polling is therefore about 1-3 requests per minute; set `region` to keep it small.
+- If the exam closes or a response looks different, the cache is dropped once and retried. Unknown layouts give a parser-broken alert that names what was missing (for example the valid 종목 names).
+- Maintenance pages, HTTP 5xx and EUC-KR/UTF-8 bodies are handled.
 
-Table image from the real fixture (`node scripts/make-real-sample-image.js`):
+The public list alone (step 1) also supports the `newrows` watcher, which alerts once when a new entry such as a 기능사 필기 window appears. The `기능사.*필기` pattern is a guess from the naming of the current 실기 entries and is unverified against a real 필기 listing.
 
-![real table image](docs/table-sample-real.png)
+```bash
+qnet-alert init --preset gineungsa --jongmok 건축도장 --region 서울   # 1-minute interval, qnet + newrows watchers, table image
+qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html   # offline end-to-end check on stored real pages, nothing sent
+```
+
+Table images from the real fixtures (`scripts/make-real-sample-image.js`, `scripts/make-seat-sample-image.js`):
+
+![real application list](docs/table-sample-real.png)
+
+![real seat table](docs/table-sample-seats.png)
 
 ## Features
 
@@ -195,7 +210,7 @@ With `tableImage` set, the current seat table (date, region, venue, exam, capaci
 |---|---|
 | `name`, `id` | Display name / identifier used for state storage |
 | `url`, `linkUrl` | URL to fetch / link attached to the alert |
-| `type` | `seats` · `jsonseats` · `contains` · `regex` · `newrows` |
+| `type` | `seats` · `jsonseats` · `contains` · `regex` · `newrows` · `qnet` |
 | `alertOn` | `open` (default) · `increase` · `change` · `available` |
 | `include` / `exclude` | Row filters — keep rows containing **all** `include` keywords and none of `exclude` |
 | `dateFrom` / `dateTo` | Keep rows whose date (`2026.12.05`, `2026-12-05`, `2026년 12월 5일`) falls in the `YYYY-MM-DD` range |
@@ -210,6 +225,7 @@ With `tableImage` set, the current seat table (date, region, venue, exam, capaci
 | `jsonseats` | Computes from capacity/applied/remaining fields of a JSON response (`fields` selects keys) |
 | `contains` | Detects a phrase (`needle`) appearing/disappearing (`alertWhen`: present/absent/change) |
 | `regex` | Detects changes in the first capture group of `pattern` |
+| `qnet` | Read-only multi-step lookup of per-venue capacity and remaining seats on Q-Net's public 현황보기 pages (`examPattern`, `jongmok`, `region`, ...) |
 | `newrows` | Alerts once per new list row whose text matches `pattern` / `needle` (public 원서접수현황 list); `alertOnFirst` also alerts for rows present on the first run |
 
 ## How it works
@@ -265,7 +281,7 @@ CI runs Node 20 and 22 on Ubuntu and Windows, plus a coverage summary.
 
 ## Limitations
 
-Seat counts (잔여석) are only shown after login on Q-Net, and this tool never logs in. What it can watch publicly is the application list (see "What can be watched without login"). The `기능사.*필기` pattern is a guess from the naming of the current 실기 entries and is unverified against a real 필기 listing. Auto-registration is intentionally not supported.
+Seat counts come from Q-Net's public venue lookup (see "What can be watched without login"). A numeric remaining-seat value was not yet observed live (every venue was 마감 at the time) and 필기 listings are unverified. The tool never logs in and never registers; auto-registration is intentionally not supported.
 
 ## Contributing
 
