@@ -45,7 +45,7 @@ test('전송 실패면 failed 이고 기준 시각을 갱신하지 않음', asyn
 });
 
 test('채널이 없으면 skipped', async () => {
-  const store = fakeStore({ __heartbeat: { at: 0 } });
+  const store = fakeStore({ __heartbeat: { at: 1 } });
   const r = await maybeHeartbeat({ heartbeatHours: 1 }, { store, results: [], fetchImpl: async () => ({}), now: () => 99 * H });
   assert.equal(r, 'skipped');
 });
