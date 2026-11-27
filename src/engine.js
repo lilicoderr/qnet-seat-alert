@@ -6,6 +6,7 @@ import { filterRows } from './filter.js';
 import { formatLine } from './log.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
 import { renderTemplate, varsFor } from './template.js';
+import { inQuietHours, takeRateSlot } from './throttle.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -85,9 +86,11 @@ export async function runWatcher(
 }
 
 // 전체 설정 1회 실행. 알림까지 보낸다.
-export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = () => {}, logger, dry = false, ...runOpts } = {}) {
+export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = () => {}, logger, dry = false, now = () => Date.now(), ...runOpts } = {}) {
   const emit = (r, extra = '') => (logger ? logger.result(r) : log(`${formatLine(r)}${extra}`));
   const results = [];
+  const quiet = inQuietHours(config.quietHours, new Date(now()));
+  if (!dry && !quiet) await flushHeld(config, { store, fetchImpl, log, now });
   for (const watcher of config.watchers || []) {
     if (watcher.enabled === false) continue;
     const r = await runWatcher(watcher, { store, fetchImpl, ...runOpts });
@@ -98,7 +101,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       if (config.politeDelayMs) await sleep(config.politeDelayMs);
       continue;
     }
-    if (r.ok && r.shouldAlert) {
+    if (r.ok && r.shouldAlert && gateAlert(config, { store, watcher, r, quiet, now })) {
       const notifiers = resolveNotifiers(config, watcher);
       if (notifiers.length > 0) {
         const { delivered, errors } = await notifyAll(notifiers, buildAlertPayload(watcher, r, config), {
@@ -131,6 +134,39 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     if (config.politeDelayMs) await sleep(config.politeDelayMs);
   }
   return results;
+}
+
+// 조용한 시간이면 보류, 빈도 제한이면 건너뜀. 지금 보내도 되면 true.
+function gateAlert(config, { store, watcher, r, quiet, now }) {
+  if (quiet) {
+    const held = store?.get('__held')?.items || {};
+    held[r.id] = buildAlertPayload(watcher, r, config);
+    store?.set('__held', { items: held });
+    r.alertError = '조용한 시간: 끝난 뒤 전송';
+    return false;
+  }
+  if (!takeRateSlot(config, store, now())) {
+    r.alertError = '빈도 제한(rateLimit): 건너뜀';
+    return false;
+  }
+  return true;
+}
+
+// 조용한 시간 동안 보류된 알림을 보낸다.
+export async function flushHeld(config, { store, fetchImpl, log = () => {}, now = () => Date.now() }) {
+  const items = store?.get('__held')?.items;
+  if (!items || !Object.keys(items).length) return 0;
+  const notifiers = resolveNotifiers(config);
+  if (!notifiers.length) return 0;
+  let sent = 0;
+  for (const payload of Object.values(items)) {
+    if (!takeRateSlot(config, store, now())) break;
+    const { delivered } = await notifyAll(notifiers, payload, { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+    if (delivered > 0) sent++;
+  }
+  store.set('__held', { items: {} });
+  log(`[quiet] 보류된 알림 ${sent}건 전송`);
+  return sent;
 }
 
 export function buildAlertPayload(watcher, r, config = {}) {

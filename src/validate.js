@@ -3,6 +3,7 @@
 import { isWebhookUrl } from './discord.js';
 import { resolveNotifiers, validateNotifier } from './notify.js';
 import { didYouMean } from './suggest.js';
+import { validateThrottle } from './throttle.js';
 import { TEMPLATE_VARS, unknownVars } from './template.js';
 
 const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex'];
@@ -11,7 +12,7 @@ const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
   'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
-  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins',
+  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'quietHours', 'rateLimit',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
@@ -64,6 +65,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   checkNumber(config, 'failureAlertAfter', errors);
   checkNumber(config, 'heartbeatHours', errors);
   checkNumber(config, 'metricsPort', errors, { min: 1 });
+  validateThrottle(config, errors);
   if (config.watchers != null && !Array.isArray(config.watchers)) {
     errors.push('watchers 는 배열이어야 합니다.');
     return { ok: false, errors, warnings };
