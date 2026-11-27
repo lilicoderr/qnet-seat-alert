@@ -118,6 +118,16 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 
 Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}` — e.g. `"title": "🎯 {name}: {available} seats!"`.
 
+### Polite polling
+
+This tool is alert-only and is meant to be gentle with Q-Net:
+
+- **Minimum interval: 2 minutes.** Lower `intervalMin` values are raised to 2; 3-10 minutes is recommended.
+- **Jitter:** each wait is randomized by +/-10% by default (`jitter`).
+- **Identifiable User-Agent:** requests send `qnet-seat-alert/<version> (+repo URL; personal alert-only watcher; low-frequency)`. A watcher's `headers` can override it.
+- Failures back off exponentially (up to 2 retries); `politeDelayMs` spaces out multiple watchers.
+- It never logs in, never registers and never pays.
+
 ### Watchers
 
 | Key | Description |
