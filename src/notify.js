@@ -3,10 +3,11 @@
 
 import { isWebhookUrl, sendAlert as sendDiscord } from './discord.js';
 import { getPlugin } from './plugins.js';
+import { sendMail } from './smtp.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
-export const NOTIFIER_TYPES = ['discord', 'slack', 'telegram', 'webhook'];
+export const NOTIFIER_TYPES = ['discord', 'slack', 'telegram', 'webhook', 'email', 'ntfy'];
 
 export function isSlackWebhook(url) {
   return /^https:\/\/hooks\.slack\.com\/services\/[\w-]+\/[\w-]+\/[\w-]+/.test(String(url || ''));
@@ -23,6 +24,16 @@ export function notifiersFromEnv(env = process.env) {
   if (env.QNET_SLACK_WEBHOOK) out.push({ type: 'slack', url: env.QNET_SLACK_WEBHOOK });
   if (env.QNET_TELEGRAM_TOKEN && env.QNET_TELEGRAM_CHAT) {
     out.push({ type: 'telegram', token: env.QNET_TELEGRAM_TOKEN, chatId: env.QNET_TELEGRAM_CHAT });
+  }
+  if (env.QNET_SMTP_HOST && env.QNET_EMAIL_TO) {
+    out.push({
+      type: 'email', host: env.QNET_SMTP_HOST, port: Number(env.QNET_SMTP_PORT) || undefined,
+      user: env.QNET_SMTP_USER, pass: env.QNET_SMTP_PASS,
+      from: env.QNET_EMAIL_FROM || env.QNET_SMTP_USER, to: env.QNET_EMAIL_TO.split(',').map((x) => x.trim()),
+    });
+  }
+  if (env.QNET_NTFY_TOPIC) {
+    out.push({ type: 'ntfy', topic: env.QNET_NTFY_TOPIC, server: env.QNET_NTFY_SERVER, token: env.QNET_NTFY_TOKEN });
   }
   if (env.QNET_WEBHOOK_URL) out.push({ type: 'webhook', url: env.QNET_WEBHOOK_URL });
   return out;
@@ -46,6 +57,14 @@ export function validateNotifier(n) {
   if (n.type === 'slack' && !isSlackWebhook(n.url)) return 'slack: https://hooks.slack.com/services/... 형식이어야 합니다.';
   if (n.type === 'webhook' && !isHttpsUrl(n.url)) return 'webhook: https:// URL 이 필요합니다.';
   if (n.type === 'telegram' && (!n.token || !n.chatId)) return 'telegram: token 과 chatId 가 필요합니다.';
+  if (n.type === 'email') {
+    if (!n.host || !n.from || !n.to || ![].concat(n.to).length) return 'email: host, from, to 가 필요합니다.';
+    if (!/^[^\s@<>]+@[^\s@<>]+$/.test(n.from)) return 'email: from 이 이메일 형식이 아닙니다.';
+  }
+  if (n.type === 'ntfy') {
+    if (!n.topic || !/^[\w-]{1,64}$/.test(n.topic)) return 'ntfy: topic(영문/숫자/-/_)이 필요합니다.';
+    if (n.server && !isHttpsUrl(n.server)) return 'ntfy: server 는 https:// URL 이어야 합니다.';
+  }
   return null;
 }
 
@@ -54,6 +73,12 @@ function plainText(payload) {
   for (const f of payload.fields || []) lines.push(`${f.name}: ${f.value}`);
   if (payload.url) lines.push(payload.url);
   return lines.filter(Boolean).join('\n');
+}
+
+// HTTP 헤더는 ASCII 만 안전 — 비ASCII 는 RFC 2047 로 인코딩
+function ntfyHeader(v) {
+  const s = String(v || '').replace(/[\r\n]+/g, ' ');
+  return /^[ -~]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s).toString('base64')}?=`;
 }
 
 async function postJson(fetchImpl, url, body) {
@@ -115,6 +140,22 @@ export async function sendTo(notifier, payload, { fetchImpl = DEFAULT_FETCH, use
         `https://api.telegram.org/bot${notifier.token}/sendMessage`,
         buildTelegramBody(notifier.chatId, payload),
       );
+    case 'email':
+      return sendMail({
+        ...notifier,
+        subject: payload.title,
+        text: plainText(payload),
+      });
+    case 'ntfy': {
+      const headers = { Title: ntfyHeader(payload.title), Priority: '4', Tags: 'bell' };
+      if (payload.url) headers.Click = payload.url;
+      if (notifier.token) headers.Authorization = `Bearer ${notifier.token}`;
+      const res = await fetchImpl(`${(notifier.server || 'https://ntfy.sh').replace(/\/$/, '')}/${notifier.topic}`, {
+        method: 'POST', headers, body: plainText({ ...payload, title: '', url: '' }),
+      });
+      if (!res.ok) throw new Error(`전송 실패 (${res.status})`);
+      return;
+    }
     case 'webhook':
       return postJson(fetchImpl, notifier.url, {
         source: 'qnet-seat-alert',
@@ -145,6 +186,6 @@ export async function notifyAll(notifiers, payload, opts = {}) {
 
 export function redact(message, n = {}) {
   let m = String(message);
-  for (const secret of [n.url, n.token]) if (secret) m = m.split(secret).join('***');
+  for (const secret of [n.url, n.token, n.pass]) if (secret) m = m.split(secret).join('***');
   return m;
 }
