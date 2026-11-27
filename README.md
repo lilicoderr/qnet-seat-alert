@@ -195,6 +195,10 @@ Q-Net's exact seat endpoint may need a login/session or change its structure. Th
 
 [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) · [MIT License](LICENSE)
 
+## Deployment
+
+systemd, Windows Task Scheduler, PM2 and Docker recipes: [docs/deploy.md](docs/deploy.md).
+
 ## Hot reload
 
 While running, the config file is re-read automatically when it changes (checked every ≤30 s), or immediately on `SIGHUP` (`kill -HUP <pid>`, Linux/macOS). An invalid new config is rejected and the previous one keeps running, with the error printed.

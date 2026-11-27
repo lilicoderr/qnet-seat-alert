@@ -1,0 +1,26 @@
+# /etc/systemd/system/qnet-alert.service
+# 1) sudo useradd -r -m -d /opt/qnet-seat-alert qnet
+# 2) clone the repo into /opt/qnet-seat-alert, create config.json and .env there (chmod 600 .env)
+# 3) sudo systemctl daemon-reload && sudo systemctl enable --now qnet-alert
+[Unit]
+Description=Q-Net seat alert (alert-only watcher)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qnet
+WorkingDirectory=/opt/qnet-seat-alert
+EnvironmentFile=/opt/qnet-seat-alert/.env
+ExecStart=/usr/bin/node bin/qnet-alert.js --json
+# systemctl reload qnet-alert  -> re-reads config.json without restarting
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=15
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/qnet-seat-alert
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -38,3 +38,12 @@ test('.env.example 에는 값이 채워져 있지 않다', () => {
     if (/^QNET_\w+=/.test(line)) assert.match(line, /=$/, `비밀값이 들어 있을 수 있음: ${line.split('=')[0]}`);
   }
 });
+
+test('deploy 파일이 있고 비밀값이 들어 있지 않다', () => {
+  for (const f of ['deploy/qnet-alert.service', 'deploy/ecosystem.config.cjs', 'deploy/windows-task.ps1', 'docs/deploy.md']) {
+    const t = read(f);
+    assert.ok(t.length > 50, f);
+    assert.ok(!/discord(app)?\.com\/api\/webhooks\/\d|hooks\.slack\.com\/services\/T/.test(t), `${f} 에 웹훅 URL`);
+  }
+  assert.match(read('deploy/qnet-alert.service'), /ExecReload=.*HUP/);
+});

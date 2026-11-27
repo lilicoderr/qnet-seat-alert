@@ -174,6 +174,10 @@ Q-Net 의 정확한 잔여석 엔드포인트는 로그인·세션이 필요하�
 
 [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) · [MIT License](LICENSE)
 
+## 배포
+
+systemd, Windows 작업 스케줄러, PM2, Docker 설정은 [docs/deploy.md](docs/deploy.md) 참고.
+
 ## 핫 리로드
 
 실행 중 설정 파일이 바뀌면 30초 이내에 자동으로 다시 읽고, `SIGHUP`(`kill -HUP <pid>`, Linux/macOS)을 보내면 즉시 읽습니다. 새 설정이 잘못됐으면 오류만 출력하고 이전 설정으로 계속 동작합니다.
