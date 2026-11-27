@@ -54,8 +54,8 @@ test('newrows: 첫 실행은 기준선만(알림 없음), 새 필기 항목이 �
   assert.equal((await run(withWritten)).shouldAlert, false);          // 다시 나타나도 재알림 없음
 });
 
-test('newrows: 표가 없는 응답(점검 페이지)은 신호 없음으로 취급', async () => {
-  const r = await runWatcher(W, { store: memoryStore(), fetchImpl: fetchOf('<html>서비스 점검중</html>'), retries: 0 });
+test('newrows: 표가 없는 응답(레이아웃 변경)은 신호 없음으로 취급', async () => {
+  const r = await runWatcher(W, { store: memoryStore(), fetchImpl: fetchOf('<html>다른 화면</html>'), retries: 0 });
   assert.equal(r.signal, null);
   assert.equal(r.shouldAlert, false);
 });
