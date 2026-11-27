@@ -34,7 +34,9 @@ async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, 
         signal: ctrl.signal,
       });
       const retryable = res.status === 429 || res.status >= 500;
-      if (!retryable || attempt === retries) return { status: res.status, text: await res.text(), attempts: attempt + 1 };
+      // 오류 응답(4xx/5xx) 본문은 파싱하지 않는다: 오류 페이지를 좌석 정보로 오인하지 않도록 실패로 처리
+      if (res.status >= 400 && (!retryable || attempt === retries)) throw new Error(`HTTP ${res.status}`);
+      if (!retryable) return { status: res.status, text: await res.text(), attempts: attempt + 1 };
       lastErr = new Error(`HTTP ${res.status}`);
     } catch (e) {
       lastErr = e;
