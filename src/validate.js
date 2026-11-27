@@ -12,7 +12,7 @@ const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
   'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
-  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'digest', 'historyPath', 'quietHours', 'rateLimit',
+  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
@@ -64,6 +64,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   checkNumber(config, 'politeDelayMs', errors);
   checkNumber(config, 'failureAlertAfter', errors);
   checkNumber(config, 'heartbeatHours', errors);
+  checkNumber(config, 'parserAlertAfter', errors);
   checkNumber(config, 'metricsPort', errors, { min: 1 });
   validateThrottle(config, errors);
   if (config.digest != null && typeof config.digest !== 'boolean') errors.push('digest 는 true/false 여야 합니다.');

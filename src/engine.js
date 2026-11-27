@@ -6,6 +6,7 @@ import { filterRows } from './filter.js';
 import { formatLine } from './log.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
 import { renderTemplate, varsFor } from './template.js';
+import { buildParserBrokenPayload } from './parser-alert.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
 
@@ -70,7 +71,9 @@ export async function runWatcher(
   const verdict = decide(prev, cur, watcher);
 
   // 현재 신호 저장 (항상 최신으로)
-  store?.set(id, { signal: cur.signal, kind: cur.kind, failures: 0 });
+  // 신호를 못 뽑았으면 이전 신호는 보존하고 연속 횟수만 센다 (복구 시 정상 비교)
+  const nullStreak = cur.signal === null || cur.signal === undefined ? (prev?.nullStreak || 0) + 1 : 0;
+  store?.set(id, nullStreak ? { ...(prev || {}), kind: cur.kind, failures: 0, nullStreak } : { signal: cur.signal, kind: cur.kind, failures: 0, nullStreak: 0 });
 
   return {
     id,
@@ -82,6 +85,7 @@ export async function runWatcher(
     detail: cur.detail,
     shouldAlert: verdict.alert,
     reason: verdict.reason,
+    nullStreak,
     alerted: false,
   };
 }
@@ -130,6 +134,14 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
           url: watcher.linkUrl || watcher.url,
           color: 0xe03131,
         }, { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+        r.alerted = delivered > 0;
+      }
+    }
+    const plimit = config.parserAlertAfter ?? 3;
+    if (r.ok && plimit > 0 && r.nullStreak === plimit) {
+      const notifiers = resolveNotifiers(config, watcher);
+      if (notifiers.length) {
+        const { delivered } = await notifyAll(notifiers, buildParserBrokenPayload(watcher, r), { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
         r.alerted = delivered > 0;
       }
     }
