@@ -2,6 +2,18 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [1.6.0] — 2026-11-27
+### Added
+- Real public fixture `test/fixtures/real/rcv00301-2026-11-27.html` (sanitized) and tests; real findings documented in a new README section "What can be watched without login" (en/ko), with a table image generated from it.
+- `newrows` watcher type: alerts once per new list row matching `pattern`/`needle` (state remembers seen rows; first run is a silent baseline, `alertOnFirst` overrides).
+- `qnet-alert init --preset gineungsa` (1-minute interval, table image, honest comments) and `doctor|test --fixture <file>` for offline end-to-end validation.
+- EUC-KR/UTF-8 response decoding and detection of Q-Net maintenance pages (HTTP 200 "점검" pages count as fetch failures).
+### Changed
+- Table image: button-only columns (보기) and the empty seat column are dropped for the public list.
+- `config.example.json` uses `newrows` with `기능사.*필기` (a plain `기능사 필기` needle can never match a row such as "기능사 1회 필기").
+### Known limits
+- Seat counts need login and are not watched. The 필기 naming pattern is unverified against a real 필기 listing; the annual schedule pages are JavaScript-rendered and not parseable.
+
 ## [1.5.0] — 2026-11-27
 ### Added
 - `config.example.json`: a watcher for the real public Q-Net application list (`rcv00301`, no login). It alerts when a `기능사 필기` entry appears. Note: that page lists applications only, not seat counts, and only during application periods; seat counts are not publicly available without login

@@ -265,7 +265,7 @@ CI runs Node 20 and 22 on Ubuntu and Windows, plus a coverage summary.
 
 ## Limitations
 
-Q-Net's exact seat endpoint may need a login/session or change its structure. This is a **generic watcher: you supply a viewable URL and extraction rules**. Auto-registration is intentionally not supported.
+Seat counts (잔여석) are only shown after login on Q-Net, and this tool never logs in. What it can watch publicly is the application list (see "What can be watched without login"). The `기능사.*필기` pattern is a guess from the naming of the current 실기 entries and is unverified against a real 필기 listing. Auto-registration is intentionally not supported.
 
 ## Contributing
 
