@@ -30,9 +30,9 @@
       "mention": ""
     },
     {
-      "name": "기능사 원서접수 시작 감시 (실제 공개 페이지, 로그인 불필요)",
+      "name": "기능사 필기 원서접수 시작 감시 (실제 공개 페이지, 로그인 불필요)",
       "type": "contains",
-      "needle": "기능사",
+      "needle": "기능사 필기",
       "alertWhen": "present",
       "url": "https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301",
       "linkUrl": "https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301"
