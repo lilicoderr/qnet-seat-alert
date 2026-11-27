@@ -21,4 +21,10 @@ pm2 sendSignal SIGHUP qnet-alert   # reload config
 ```
 
 ## Docker
-`docker compose up -d` (see `docker-compose.yml`), or `ghcr.io/lilicoderr/qnet-seat-alert` once released.
+`docker compose up -d` (see `docker-compose.yml`), or run the prebuilt multi-arch image published to GHCR on every `vX.Y.Z` tag:
+
+```
+docker run -d --name qnet-alert --env-file .env -v "$PWD/data:/data" ghcr.io/lilicoderr/qnet-seat-alert:latest
+```
+
+Put `config.json` in `./data`. Publishing is done by `.github/workflows/docker.yml`.

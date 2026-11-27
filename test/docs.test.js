@@ -54,3 +54,12 @@ test('JSON Schema 가 검증기의 키 목록과 일치하고 예제가 힌트�
   assert.deepEqual(Object.keys(schema.definitions.watcher.properties).sort(), [...WATCHER_KEYS].sort());
   assert.equal(JSON.parse(read('config.example.json')).$schema, './schemas/config.schema.json');
 });
+
+test('docker 워크플로: 태그에서만, GITHUB_TOKEN 외 비밀값 없음, 테스트 선행', () => {
+  const y = read('.github/workflows/docker.yml');
+  assert.match(y, /tags: \['v\*\.\*\.\*'\]/);
+  assert.match(y, /ghcr\.io/);
+  assert.match(y, /node --test/);
+  const secrets = [...y.matchAll(/secrets\.(\w+)/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(secrets)], ['GITHUB_TOKEN']);
+});
