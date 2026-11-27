@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
+import { presetConfig } from './preset.js';
 
 export const CHANNEL_ENV = {
   discord: ['QNET_DISCORD_WEBHOOK'],
@@ -80,6 +81,17 @@ export function writeFiles(dir, config, envExample, { force = false } = {}) {
     }
   }
   return { written, skipped };
+}
+
+// 프리셋: 질문 없이 설정 파일을 쓴다.
+export function runPreset(name, { output = process.stderr, dir = process.cwd(), force = false } = {}) {
+  const config = presetConfig(name);
+  const env = `${buildEnvExample(['discord'])}# QNET_MENTION_USERS=   # your Discord user ID(s), comma separated\n`;
+  const { written, skipped } = writeFiles(dir, config, env, { force });
+  for (const f of written) output.write(`OK  ${f} created\n`);
+  for (const f of skipped) output.write(`--  ${f} exists, skipped (use --force)\n`);
+  output.write('Next: copy .env.example to .env, fill it, then run: qnet-alert doctor --fixture test/fixtures/real/rcv00301-2026-11-27.html\n');
+  return { config, written, skipped };
 }
 
 export async function runInit({ input = process.stdin, output = process.stderr, dir = process.cwd(), force = false } = {}) {

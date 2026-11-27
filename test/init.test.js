@@ -77,3 +77,18 @@ test('runInit: URL 없이 입력이 끝나면 중단', async () => {
   assert.equal(fs.existsSync(path.join(dir, 'config.json')), false);
   fs.rmSync(dir, { recursive: true });
 });
+
+test('init --preset gineungsa: 1분 간격, newrows, 표 이미지, 비밀값 없음, 검증 통과', async () => {
+  const { runPreset } = await import('../src/init.js');
+  const dir = tmp();
+  const { config, written } = runPreset('gineungsa', { dir, output: sink() });
+  assert.deepEqual(written.sort(), ['.env.example', 'config.json']);
+  assert.equal(config.intervalMin, 1);
+  assert.equal(config.watchers[0].type, 'newrows');
+  assert.equal(config.tableImage.every, true);
+  assert.ok(validateConfig(config, { requireWebhook: false }).errors.length === 0);
+  const raw = fs.readFileSync(path.join(dir, 'config.json'), 'utf8');
+  assert.ok(!/discord\.com\/api\/webhooks|token/i.test(raw));
+  assert.match(config.comment, /CANNOT SEE: remaining seats/);
+  assert.throws(() => runPreset('nope', { dir, output: sink() }), /unknown preset/);
+});
