@@ -70,7 +70,7 @@ export function validateNotifier(n) {
   return null;
 }
 
-function plainText(payload) {
+export function plainText(payload) {
   const lines = [payload.title, payload.description];
   for (const f of payload.fields || []) lines.push(`${f.name}: ${f.value}`);
   if (payload.url) lines.push(payload.url);

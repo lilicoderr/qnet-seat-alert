@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { parseTable, renderTableHtml, formatKst } from '../src/table.js';
 import { renderPng, renderTableImage, pngSize, findChrome } from '../src/render.js';
-import { buildDiscordImageForm, sendTableImage, tableImageConfig } from '../src/table-image.js';
+import { buildDiscordImageForm, prepareTableImage, notifyAllWithImage, tableImageConfig } from '../src/table-image.js';
 import { validateConfig } from '../src/validate.js';
 import { runOnce } from '../src/engine.js';
 import { memoryStore } from '../src/store.js';
@@ -51,32 +51,47 @@ test('renderPng: 헤더 문구가 담긴 HTML 이 렌더러로 전달된다', as
   await assert.rejects(renderPng('x', {}), /Chrome/);
 });
 
-test('Discord multipart: 파일 + payload_json(allowed_mentions 제한)', async () => {
-  const form = buildDiscordImageForm(FAKE_PNG, { caption: '2026-11-27 14:03 KST 기준', username: 'u', mentions: { users: ['123456789012345678'], roles: ['345678901234567890'] } });
-  const payload = JSON.parse(form.get('payload_json'));
-  assert.equal(payload.content, '<@123456789012345678> <@&345678901234567890> 2026-11-27 14:03 KST 기준');
-  assert.deepEqual(payload.allowed_mentions, { parse: [], users: ['123456789012345678'], roles: ['345678901234567890'] });
+test('Discord multipart: 알림+이미지 한 통, 멘션 1회, allowed_mentions 제한', () => {
+  const mentions = { users: ['123456789012345678'], roles: ['345678901234567890'] };
+  const payload = { title: 'T', description: 'D', mentions, content: '' };
+  const form = buildDiscordImageForm(FAKE_PNG, { payload, username: 'u' });
+  const body = JSON.parse(form.get('payload_json'));
+  assert.equal(body.content, '<@123456789012345678> <@&345678901234567890>');
+  assert.equal(body.embeds[0].image.url, 'attachment://qnet-status.png');
+  assert.deepEqual(body.allowed_mentions, { parse: [], users: ['123456789012345678'], roles: ['345678901234567890'] });
   const file = form.get('files[0]');
   assert.equal(file.type, 'image/png');
   assert.equal(file.name, 'qnet-status.png');
-  assert.equal(file.size, FAKE_PNG.length);
+  // 이미지 전용: 멘션 없음
+  const only = JSON.parse(buildDiscordImageForm(FAKE_PNG, { caption: '2026-11-27 14:03 KST', username: 'u' }).get('payload_json'));
+  assert.deepEqual(only.allowed_mentions, { parse: [], users: [], roles: [] });
+  assert.ok(!only.embeds);
 });
 
-test('sendTableImage: 변화 시에만 / every 면 매번', async () => {
+test('Telegram: sendPhoto 한 통(캡션=알림 본문), Slack 은 텍스트만', async () => {
   const calls = [];
-  const fetchImpl = async (url, init) => { calls.push({ url, init }); return { ok: true, status: 204 }; };
-  const renders = [];
-  const renderImpl = async (table, o) => { renders.push(o); return FAKE_PNG; };
+  const fetchImpl = async (url, init) => { calls.push({ url, init }); return { ok: true, status: 200 }; };
+  const payload = { title: 'T', description: 'D' };
+  const ns = [{ type: 'telegram', token: 'tok', chatId: '1' }, { type: 'slack', url: 'https://hooks.slack.com/services/A/B/C' }];
+  const { delivered } = await notifyAllWithImage(ns, FAKE_PNG, { fetchImpl, payload });
+  assert.equal(delivered, 2);
+  assert.match(calls[0].url, /sendPhoto$/);
+  assert.match(calls[0].init.body.get('caption'), /T\nD/);
+  assert.equal(typeof calls[1].init.body, 'string');
+  assert.equal((await notifyAllWithImage([ns[1]], FAKE_PNG, { fetchImpl })).delivered, 0); // 이미지 전용은 Slack 건너뜀
+});
+
+test('prepareTableImage: 변화 시에만 / every 면 매번 / attach 면 항상', async () => {
+  const renderImpl = async () => FAKE_PNG;
   const r = { id: 'w', ok: true, available: 6, rawText: html };
-  const mk = (every) => ({ config: { tableImage: { every } }, watcher: { name: 'W' }, r, notifiers: [{ type: 'discord', url: WH }, { type: 'slack', url: 'https://hooks.slack.com/services/A/B/C' }], store: memoryStore(), fetchImpl, now: AT, renderImpl });
+  const mk = (every, extra = {}) => ({ config: { tableImage: { every } }, watcher: { name: 'W' }, r, store: memoryStore(), now: AT, renderImpl, ...extra });
   const a = mk(false);
-  assert.equal((await sendTableImage(a)).sent, 1); // 첫 관측 = 변화
-  assert.equal((await sendTableImage(a)).sent, 0); // 같은 표
-  assert.equal(renders[0].checkedAt, AT);
+  assert.ok(await prepareTableImage(a)); // 첫 관측 = 변화
+  assert.equal(await prepareTableImage(a), null); // 같은 표
+  assert.ok(await prepareTableImage({ ...a, attach: true }));
   const b = mk(true);
-  await sendTableImage(b); await sendTableImage(b);
-  assert.equal(calls.length, 3); // Slack 은 건너뜀
-  assert.ok(calls[0].init.body instanceof FormData);
+  assert.ok(await prepareTableImage(b)); assert.ok(await prepareTableImage(b));
+  assert.equal(await prepareTableImage({ ...mk(true), gate: () => false }), null);
   assert.equal(tableImageConfig({}), null);
   assert.equal(tableImageConfig({ tableImage: { enabled: false } }), null);
 });

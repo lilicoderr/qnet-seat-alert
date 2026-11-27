@@ -1,9 +1,10 @@
 // 현황표 PNG 를 알림 채널(Discord 웹훅 multipart / Telegram sendPhoto)에 첨부해 보낸다.
 // Slack 인커밍 웹훅은 파일 업로드를 지원하지 않아 건너뛴다 (본문 알림은 그대로 간다).
-import { isWebhookUrl } from './discord.js';
+import { isWebhookUrl, buildDiscordBody } from './discord.js';
+import { plainText, sendTo, validateNotifier } from './notify.js';
 import { parseTable, tableFingerprint, formatKst } from './table.js';
 import { renderTableImage, findChrome } from './render.js';
-import { allowedMentionsFor, discordMentionText } from './mentions.js';
+import { allowedMentionsFor } from './mentions.js';
 import { redactAll } from './redact.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
@@ -26,57 +27,80 @@ export function validateTableImage(config, errors, warnings) {
   if (c.width != null && !(typeof c.width === 'number' && c.width >= 400 && c.width <= 3000)) errors.push('tableImage.width 는 400~3000 사이 숫자(px)여야 합니다.');
 }
 
-// Discord multipart 본문 (순수 함수: 테스트에서 검사). 이미지 메시지에도 같은 멘션 규칙을 적용한다.
-export function buildDiscordImageForm(png, { caption, username, mentions, filename = 'qnet-status.png' }) {
-  const content = [discordMentionText(mentions), caption].filter(Boolean).join(' ').slice(0, 2000);
+const FILENAME = 'qnet-status.png';
+
+// Discord multipart 본문 (순수 함수). payload 가 있으면 알림 임베드에 이미지를 붙인 "한 통"(멘션은 payload.mentions 에서 한 번만),
+// 없으면 멘션 없는 이미지 전용 메시지.
+export function buildDiscordImageForm(png, { payload, caption = '', username, filename = FILENAME, now } = {}) {
+  let body;
+  if (payload) {
+    body = buildDiscordBody(payload, { username, now });
+    body.embeds[0].image = { url: `attachment://${filename}` };
+  } else {
+    const content = caption.slice(0, 2000);
+    body = { username, content, allowed_mentions: allowedMentionsFor(content) };
+  }
+  body.attachments = [{ id: 0, filename }];
   const form = new FormData();
-  form.append('payload_json', JSON.stringify({ username, content, allowed_mentions: allowedMentionsFor(content), attachments: [{ id: 0, filename }] }));
+  form.append('payload_json', JSON.stringify(body));
   form.append('files[0]', new Blob([png], { type: 'image/png' }), filename);
   return form;
 }
 
-export async function sendImageTo(notifier, png, opts = {}) {
-  const { fetchImpl = DEFAULT_FETCH, caption = '', username, mentions, filename = 'qnet-status.png' } = opts;
-  let res;
+async function check(res, what) {
+  if (!res.ok && res.status !== 204) throw new Error(`${what} 전송 실패 (${res.status}) ${(await res.text().catch(() => '')).slice(0, 200)}`);
+}
+
+// 채널 1개로 (알림 payload + 이미지) 를 "한 메시지"로 보낸다. payload 가 없으면 이미지 전용.
+// Discord: 임베드+첨부 / Telegram: sendPhoto(캡션=알림 본문) / 그 외: payload 가 있으면 기존 텍스트 알림, 없으면 건너뜀.
+export async function sendWithImage(notifier, png, { payload, caption = '', fetchImpl = DEFAULT_FETCH, username } = {}) {
   if (notifier.type === 'discord' && isWebhookUrl(notifier.url)) {
-    res = await fetchImpl(notifier.url, { method: 'POST', body: buildDiscordImageForm(png, { caption, username, mentions, filename }) });
-  } else if (notifier.type === 'telegram' && notifier.token && notifier.chatId) {
+    await check(await fetchImpl(notifier.url, { method: 'POST', body: buildDiscordImageForm(png, { payload, caption, username }) }), '이미지');
+    return true;
+  }
+  if (notifier.type === 'telegram' && notifier.token && notifier.chatId) {
     const form = new FormData();
     form.append('chat_id', String(notifier.chatId));
-    form.append('caption', caption.slice(0, 1000));
-    form.append('photo', new Blob([png], { type: 'image/png' }), filename);
-    res = await fetchImpl(`https://api.telegram.org/bot${notifier.token}/sendPhoto`, { method: 'POST', body: form });
-  } else {
-    return false; // 이 채널은 이미지 첨부 미지원
+    form.append('caption', (payload ? plainText(payload) : caption).slice(0, 1000));
+    form.append('photo', new Blob([png], { type: 'image/png' }), FILENAME);
+    await check(await fetchImpl(`https://api.telegram.org/bot${notifier.token}/sendPhoto`, { method: 'POST', body: form }), '이미지');
+    return true;
   }
-  if (!res.ok && res.status !== 204) throw new Error(`이미지 전송 실패 (${res.status}) ${(await res.text().catch(() => '')).slice(0, 200)}`);
+  if (!payload) return false;
+  await sendTo(notifier, payload, { fetchImpl, username });
   return true;
 }
 
-// 표를 만들고(현재 워처의 원문), 지문이 바뀌었거나 every 이면 PNG 를 렌더해 모든 채널로 보낸다.
-// 반환: { sent, errors, changed }
-export async function sendTableImage({ config, watcher, r, notifiers, store, fetchImpl, username, mentions, now = Date.now(), renderImpl = renderTableImage, forceSend = false }) {
+// 모든 채널로. 반환: { delivered, errors }
+export async function notifyAllWithImage(notifiers, png, opts = {}) {
+  const errors = [];
+  let delivered = 0;
+  for (const n of notifiers) {
+    try {
+      const err = validateNotifier(n);
+      if (err) throw new Error(err);
+      if (await sendWithImage(n, png, opts)) delivered++;
+    } catch (e) { errors.push(`${n.type}: ${redactAll(e.message, [n])}`); }
+  }
+  return { delivered, errors };
+}
+
+// 표를 만들고 PNG 를 렌더한다 (전송은 하지 않음). 지문(fingerprint)은 항상 갱신한다.
+//   attach: true 면 항상 렌더(알림에 붙일 때) / 아니면 every 이거나 표가 바뀐 때만.
+//   gate: 이미지 전용 메시지를 실제로 보내기 직전에 호출 (빈도 제한 슬롯 등). false 면 렌더/지문 갱신 없이 null.
+// 반환: { png, caption } 또는 null
+export async function prepareTableImage({ config, watcher, r, store, now = Date.now(), renderImpl = renderTableImage, attach = false, gate }) {
   const ti = tableImageConfig(config);
-  if (!ti || !r.ok || !r.rawText) return { sent: 0, errors: [], changed: false };
+  if (!ti || !r.ok || !r.rawText) return null;
   const lang = config.lang === 'en' ? 'en' : 'ko';
   const table = parseTable(r.rawText, watcher, r, lang);
-  if (!table.rows.length) return { sent: 0, errors: [], changed: false };
+  if (!table.rows.length) return null;
   const key = `__table:${r.id}`;
   const fp = tableFingerprint(table);
   const changed = store?.get(key)?.fp !== fp;
+  if (!attach && !(ti.every || changed)) return null;
+  if (!attach && gate && !gate()) return null;
   store?.set(key, { fp });
-  if (!(ti.every || changed || forceSend)) return { sent: 0, errors: [], changed };
-  const errors = [];
-  let sent = 0;
-  try {
-    const checkedAt = now;
-    const png = await renderImpl(table, { title: watcher.name || 'Q-Net', checkedAt, lang, chrome: findChrome({ configured: ti.chrome }), width: ti.width });
-    const caption = `${formatKst(checkedAt)} KST${lang === 'ko' ? ' 기준' : ''} · ${watcher.name || 'Q-Net'}`;
-    for (const n of notifiers) {
-      try {
-        if (await sendImageTo(n, png, { fetchImpl, caption, username, mentions: r.available > 0 ? mentions : undefined })) sent++;
-      } catch (e) { errors.push(`${n.type}: ${redactAll(e.message, [n])}`); }
-    }
-  } catch (e) { errors.push(`image: ${e.message}`); }
-  return { sent, errors, changed };
+  const png = await renderImpl(table, { title: watcher.name || 'Q-Net', checkedAt: now, lang, chrome: findChrome({ configured: ti.chrome }), width: ti.width });
+  return { png, caption: `${formatKst(now)} KST${lang === 'ko' ? ' 기준' : ''} · ${watcher.name || 'Q-Net'}` };
 }

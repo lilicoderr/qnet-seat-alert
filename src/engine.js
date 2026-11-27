@@ -11,7 +11,7 @@ import { langOf, t, usernameOf } from './i18n.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
 import { isDue } from './cron.js';
-import { sendTableImage, tableImageConfig } from './table-image.js';
+import { prepareTableImage, notifyAllWithImage, tableImageConfig } from './table-image.js';
 import { mentionsFromConfig, mentionDue, recordMention } from './mentions.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
@@ -123,19 +123,30 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       r.shouldAlert = true;
       r.reason = t(langOf(config), 'decide.stillOpen', { n: r.available });
     }
-    const send = r.ok && r.shouldAlert && gateAlert(config, { store, watcher, r, quiet, now });
+    const wanted = r.ok && r.shouldAlert;
+    const send = wanted && gateAlert(config, { store, watcher, r, quiet, now });
     const toDigest = send && config.digest && !watcher.webhookUrl;
     if (toDigest) pending.push({ watcher, r });
-    if (send && mm.any && r.available > 0) recordMention(store, r.id, now());
+    // 멘션은 알림이 게이트(조용한 시간/빈도 제한)를 통과하고 쿨다운이 지났을 때만, 한 번만 나간다
+    const ping = send && mm.any && r.available > 0 && mentionDue(mm, store, r.id, now());
+    if (ping) recordMention(store, r.id, now());
+    const imageOn = !!tableImageConfig(config);
+    const imgOpts = { config, watcher, r, store, now: now(), renderImpl: runOpts.renderImpl };
     if (send && !toDigest) {
       const notifiers = resolveNotifiers(config, watcher);
       if (notifiers.length > 0) {
-        const { delivered, errors } = await notifyAll(notifiers, buildAlertPayload(watcher, r, config), {
-          fetchImpl,
-          username: usernameOf(config),
-        });
+        const payload = buildAlertPayload(watcher, r, config);
+        if (!ping) payload.mentions = undefined;
+        let img = null;
+        if (imageOn) {
+          try { img = await prepareTableImage({ ...imgOpts, attach: true }); } catch (e) { r.alertError = `image: ${e.message}`; }
+        }
+        const opts = { fetchImpl, username: usernameOf(config) };
+        const { delivered, errors } = img
+          ? await notifyAllWithImage(notifiers, img.png, { ...opts, payload, caption: img.caption })
+          : await notifyAll(notifiers, payload, opts);
         r.alerted = delivered > 0;
-        if (errors.length) r.alertError = errors.join('; ');
+        if (errors.length) r.alertError = [r.alertError, errors.join('; ')].filter(Boolean).join('; ');
       } else {
         r.alertError = '알림 채널 없음';
       }
@@ -162,10 +173,17 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
         r.alerted = delivered > 0;
       }
     }
-    if (tableImageConfig(config)) {
+    // 알림이 없는 체크: 이미지 전용 메시지(멘션 없음). 조용한 시간엔 아무것도 보내지 않고, 빈도 제한을 따른다.
+    // 알림이 있었으나 게이트에 막혔다면(빈도 제한 등) 이미지도 보내지 않는다.
+    if (imageOn && !quiet && (!wanted || toDigest)) {
       const notifiers = resolveNotifiers(config, watcher);
-      const ti = await sendTableImage({ config, watcher, r, notifiers, store, fetchImpl, username: usernameOf(config), now: now(), renderImpl: runOpts.renderImpl });
-      if (ti.errors.length) r.alertError = [r.alertError, ...ti.errors].filter(Boolean).join('; ');
+      try {
+        const img = notifiers.length ? await prepareTableImage({ ...imgOpts, gate: () => takeRateSlot(config, store, now()) }) : null;
+        if (img) {
+          const { errors } = await notifyAllWithImage(notifiers, img.png, { fetchImpl, username: usernameOf(config), caption: img.caption });
+          if (errors.length) r.alertError = [r.alertError, ...errors].filter(Boolean).join('; ');
+        }
+      } catch (e) { r.alertError = [r.alertError, `image: ${e.message}`].filter(Boolean).join('; '); }
     }
     emit(r);
     results.push(r);
