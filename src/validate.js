@@ -20,7 +20,7 @@ export const TOP_KEYS = [
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
   'dateFrom', 'dateTo', 'mention', 'enabled', 'needle', 'pattern', 'fields', 'method',
-  'headers', 'body', 'webhookUrl', 'template', 'flags', 'schedule', 'alertOnFirst', 'examPattern', 'jongmok', 'region', 'recptCd', 'showClosed', 'refreshMin', 'maxPages',
+  'headers', 'body', 'webhookUrl', 'template', 'flags', 'schedule', 'alertOnFirst', 'examPattern', 'jongmok', 'region', 'recptCd', 'showClosed', 'refreshMin', 'maxPages', 'pageDelayMs',
 ];
 
 function checkNumber(config, key, errors, { min = 0 } = {}) {
@@ -114,6 +114,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
     }
     if (w.type === 'contains' && !w.needle) errors.push(`${where}: contains 타입은 needle 이 필요합니다.`);
     if (w.type === 'newrows' && !w.needle && !w.pattern) errors.push(`${where}: newrows 타입은 needle 또는 pattern 이 필요합니다.`);
+    if (w.type === 'qnet' && !w.region) warnings.push(`${where}: region 이 없어 전국 결과를 모두 조회합니다. intervalMin 1 이면 분당 요청이 결과 페이지 수(최대 maxPages, 기본 5)만큼 늘어납니다. region(예: "서울")을 권장합니다.`);
     if (w.type === 'qnet' && !w.jongmok) errors.push(`${where}: qnet 타입은 jongmok(종목 이름 일부, 예: '건축도장')이 필요합니다.`);
     if (w.type === 'regex' && !w.pattern) errors.push(`${where}: regex 타입은 pattern 이 필요합니다.`);
     if (w.webhookUrl && !isWebhookUrl(w.webhookUrl)) errors.push(`${where}: webhookUrl 형식이 올바르지 않습니다.`);

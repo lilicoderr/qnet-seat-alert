@@ -63,7 +63,8 @@ function fake({ list = real('rcv00301-2026-11-27.html'), venue = real('rcv00303s
   return { calls, fetchImpl };
 }
 const W = { name: 'q', type: 'qnet', url: 'https://www.q-net.or.kr/rcv003.do?gSite=Q&id=rcv00301', examPattern: '기능사', jongmok: '건축도장' };
-const run = (f, w = W, store = memoryStore()) => runWatcher(w, { store, fetchImpl: f.fetchImpl, retries: 0 });
+const sleeps = [];
+const run = (f, w = W, store = memoryStore()) => runWatcher(w, { store, fetchImpl: f.fetchImpl, retries: 0, sleepImpl: async (ms) => { sleeps.push(ms); } });
 
 test('qnet: 전체 흐름(실제 fixture) - 잔여 0, 표에 지역/시험장/잔여 열', async () => {
   const f = fake();
@@ -126,4 +127,66 @@ test('qnet: 레이아웃 변경(목록 표 없음 / 점검 / 5xx)', async () => 
   clearQnetCache();
   const e = await withNow(() => run({ fetchImpl: async () => new Response('x', { status: 503 }) }));
   assert.equal(e.error, 'HTTP 503');
+});
+
+// ── 예의: 페이지 간격, 백오프, 정적 단계 재실행 최소화, 없음 캐시 ──
+test('qnet: 결과 페이지 사이에 간격(기본 1500ms, pageDelayMs 로 변경)', async () => {
+  sleeps.length = 0;
+  await withNow(() => run(fake()));
+  assert.deepEqual(sleeps, [1500]);
+  sleeps.length = 0; clearQnetCache();
+  await withNow(() => run(fake(), { ...W, pageDelayMs: 300 }));
+  assert.deepEqual(sleeps, [300]);
+});
+
+test('qnet: maxPages 기본 5 로 요청 수를 제한', async () => {
+  const many = real('rcv00303s03-closed.html').replace('title="2페이지"', 'title="9페이지"');
+  const f = fake({ venue: many });
+  await withNow(() => run(f));
+  assert.equal(f.calls.filter((c) => c.id === 'rcv00303s03').length, 5);
+});
+
+test('qnet: 5xx 후 백오프(2분, 4분 ...)로 다음 체크들은 요청 없이 건너뜀, 네트워크 오류는 정적 단계를 다시 돌리지 않음', async () => {
+  const store = memoryStore();
+  const f = fake();
+  await withNow(() => run(f, W, store)); // 캐시 채우기
+  const before = f.calls.length;
+  let fail = true;
+  const flaky = { calls: [], fetchImpl: async (u, i) => { flaky.calls.push(new URL(u).searchParams.get('id')); return fail ? new Response('x', { status: 503 }) : f.fetchImpl(u, i); } };
+  const r1 = await withNow(() => run(flaky, W, store));
+  assert.equal(r1.error, 'HTTP 503');
+  assert.deepEqual(flaky.calls, ['rcv00303s03']); // 목록/폼 재조회 없음
+  const r2 = await withNow(() => run(flaky, W, store)); // 같은 시각: 백오프 중
+  assert.match(r2.error, /대기 중/);
+  assert.equal(flaky.calls.length, 1);
+  fail = false;
+  const later = NOW + 3 * 60000; const o = Date.now; Date.now = () => later;
+  try { assert.equal((await run(flaky, W, store)).ok, true); } finally { Date.now = o; }
+  assert.ok(before > 0);
+});
+
+test('qnet: 접수 중인 시험 없음은 5분 캐시, 접수 시작 5분 전부터는 매 체크 확인', async () => {
+  const store = memoryStore();
+  const f = fake();
+  const w = { ...W, examPattern: '없는시험' };
+  const T = Date.parse('2026-11-27T05:00:00Z');
+  for (const dt of [0, 60000, 120000]) await (async () => { const o = Date.now; Date.now = () => T + dt; try { await run(f, w, store); } finally { Date.now = o; } })();
+  assert.equal(f.calls.length, 1); // 3번 체크, 목록 1번
+  // 접수 시작(10:00 KST = 01:00Z) 직전: 시작 전 상태에서는 5분 안으로 다가오면 매번 재확인
+  clearQnetCache();
+  const g = fake();
+  const start = Date.parse('2026-11-27T01:00:00Z');
+  for (const dt of [-20 * 60000, -4 * 60000, -3 * 60000]) { const o = Date.now; Date.now = () => start + dt; try { await run(g, { ...W, examPattern: '107회' }, memoryStore()); } finally { Date.now = o; } }
+  assert.equal(g.calls.length, 3); // -20분(캐시) 이후 -4분, -3분은 5분 이내라 매번 확인
+  clearQnetCache();
+  const h = fake();
+  for (const dt of [-20 * 60000, -18 * 60000, -16 * 60000]) { const o = Date.now; Date.now = () => start + dt; try { await run(h, { ...W, examPattern: '107회' }, memoryStore()); } finally { Date.now = o; } }
+  assert.equal(h.calls.length, 1); // 먼 시작 시각은 5분 캐시
+});
+
+test('validate: region 없는 qnet 워처에는 요청 수 경고', async () => {
+  const { validateConfig } = await import('../src/validate.js');
+  const v = validateConfig({ intervalMin: 1, watchers: [W] }, { requireWebhook: false });
+  assert.ok(v.warnings.some((x) => /region/.test(x)));
+  assert.ok(!validateConfig({ watchers: [{ ...W, region: '서울' }] }, { requireWebhook: false }).warnings.some((x) => /region 이 없어/.test(x)));
 });

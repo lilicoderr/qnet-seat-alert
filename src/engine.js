@@ -73,7 +73,7 @@ export async function runWatcher(
     if (watcher.type === 'qnet') {
       // 읽기 전용 다단계 조회. 레이아웃 변경은 빈 본문(=신호 없음 → parser broken 알림 경로)으로 처리한다.
       const fetchText = async (req) => (await fetchWithRetry({ ...req, headers: { ...req.headers, ...(watcher.headers || {}) } }, opts)).text;
-      try { text = (await fetchQnetSeats(watcher, fetchText)).text; } catch (e) { if (!(e instanceof QnetLayoutError)) throw e; text = ''; layoutNote = e.message; }
+      try { text = (await fetchQnetSeats(watcher, fetchText, { sleep: sleepImpl })).text; } catch (e) { if (!(e instanceof QnetLayoutError)) throw e; text = ''; layoutNote = e.message; }
       httpStatus = 200;
     } else {
       const got = await fetchWithRetry(watcher, opts);
