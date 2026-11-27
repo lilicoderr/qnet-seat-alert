@@ -45,6 +45,17 @@ async function main() {
     await runStats(process.argv.slice(3));
     return;
   }
+  // 하위 명령: 이름 -> [모듈, 함수]. 숫자를 돌려주면 종료 코드로 쓴다.
+  const SUBCOMMANDS = {
+    dashboard: ['../src/dashboard-cmd.js', 'runDashboard'],
+  };
+  if (SUBCOMMANDS[process.argv[2]]) {
+    loadEnvFile(process.env.QNET_ENV || '.env');
+    const [mod, fn] = SUBCOMMANDS[process.argv[2]];
+    const exit = await (await import(mod))[fn](process.argv.slice(3));
+    if (typeof exit === 'number') process.exitCode = exit;
+    return;
+  }
   loadEnvFile(process.env.QNET_ENV || '.env');
   const args = parseArgs(process.argv);
   const configPath = path.resolve(args.config);
