@@ -22,3 +22,9 @@ test('real fixture 에 세션/계획 ID 가 없다', () => {
   const h = real('rcv00301-2026-11-27.html');
   assert.ok(!/JSESSIONID|PL20\d+/.test(h));
 });
+
+test('real rcv00301: 표에는 버튼 열과 빈 빈자리 열이 없다', () => {
+  const t = parseTable(real('rcv00301-2026-11-27.html'));
+  assert.deepEqual(t.columns, ['응시시험', '접수기간']);
+  assert.equal(t.rows[0].cells.length, 2);
+});

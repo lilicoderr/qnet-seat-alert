@@ -50,7 +50,7 @@ export function parseTable(rawText, watcher = {}, cur = null, lang = 'ko') {
   if (rows.length) {
     const width = Math.max(...rows.map((r) => r.cells.length));
     while (columns.length < width) columns.push('');
-    return { columns: [...columns.slice(0, width), l.seats], rows: rows.map((r) => ({ ...r, cells: [...r.cells, seatLabel(r.available, l)] })) };
+    return finishTable(columns.slice(0, width), rows, l);
   }
   if (cur && cur.available != null) {
     const d = cur.detail && typeof cur.detail === 'object' ? cur.detail : {};
@@ -60,6 +60,18 @@ export function parseTable(rawText, watcher = {}, cur = null, lang = 'ko') {
     };
   }
   return { columns: [], rows: [] };
+}
+
+// 버튼 라벨뿐인 열(보기/현황보기)은 버리고, 좌석 수가 하나도 없으면(공개 목록 페이지) 빈자리 열도 붙이지 않는다.
+const BUTTON_RE = /^(현황보기|보기|바로가기|접수하기)?$/;
+function finishTable(columns, rows, l) {
+  const keep = columns.map((_, i) => !rows.every((r) => BUTTON_RE.test(r.cells[i] ?? '')));
+  const pick = (arr) => arr.filter((_, i) => keep[i]);
+  const hasSeats = rows.some((r) => r.available != null);
+  return {
+    columns: hasSeats ? [...pick(columns), l.seats] : pick(columns),
+    rows: rows.map((r) => ({ ...r, cells: hasSeats ? [...pick(r.cells), seatLabel(r.available, l)] : pick(r.cells) })),
+  };
 }
 
 const seatLabel = (n, l) => (n == null ? '-' : n > 0 ? l.seatsVal(n) : l.closed);
