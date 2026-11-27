@@ -33,6 +33,11 @@ function parseArgs(argv) {
 }
 
 async function main() {
+  if (process.argv[2] === 'init') {
+    const { runInit } = await import('../src/init.js');
+    await runInit({ force: process.argv.includes('--force') });
+    return;
+  }
   loadEnvFile(process.env.QNET_ENV || '.env');
   const args = parseArgs(process.argv);
   const configPath = path.resolve(args.config);
