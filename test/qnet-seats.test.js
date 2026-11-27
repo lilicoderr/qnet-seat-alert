@@ -76,7 +76,7 @@ test('qnet: 전체 흐름(실제 fixture) - 잔여 0, 표에 지역/시험장/�
   assert.ok(f.calls.every((c) => /^qnet-seat-alert\//.test(c.ua)));
   assert.ok(f.calls.every((c) => !/rcv202|man001/.test(c.id)));
   const t = parseTable(r.rawText, W, r);
-  assert.deepEqual(t.columns, ['지역', '시험장', '시험일자', '정원', '잔여', '빈자리']);
+  assert.deepEqual(t.columns, ['지역', '시험장', '시험일자', '정원', '빈자리']);
   assert.equal(t.rows[0].cells.at(-1), '마감');
 });
 

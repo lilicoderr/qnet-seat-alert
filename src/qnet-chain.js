@@ -52,7 +52,7 @@ async function queryPages(s, w, fetchText) {
 // 시험장 행 -> 감시 대상 표 HTML (parseTable/evaluate 가 그대로 읽는다). 열: 지역/시험장/시험일자/정원/잔여
 export function rowsToHtml(rows, w = {}) {
   const keep = hasFilter(w) ? rows.filter((r) => filterRows(`${r.region} ${r.org} ${r.place} ${r.date}`, w).rows?.length) : rows;
-  const body = keep.map((r) => `<tr><td>${esc(r.region)}</td><td>${esc(`${r.org} ${r.place}`.trim())}</td><td>${esc(r.date)}</td><td>${r.capacity ?? ''}</td><td>${r.open}</td></tr>`).join('');
+  const body = keep.map((r) => `<tr><td>${esc(r.region)}</td><td>${esc(`${r.org} ${r.place.replace(/【[^】]*】/g, '')}`.trim())}</td><td>${esc(r.date)}</td><td>${r.capacity ?? ''}</td><td>${r.open}</td></tr>`).join('');
   return `<table><thead><tr><th>지역</th><th>시험장</th><th>시험일자</th><th>정원</th><th>잔여</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 

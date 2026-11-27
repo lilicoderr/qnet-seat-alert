@@ -65,7 +65,8 @@ export function parseTable(rawText, watcher = {}, cur = null, lang = 'ko') {
 // 버튼 라벨뿐인 열(보기/현황보기)은 버리고, 좌석 수가 하나도 없으면(공개 목록 페이지) 빈자리 열도 붙이지 않는다.
 const BUTTON_RE = /^(현황보기|보기|바로가기|접수하기)?$/;
 function finishTable(columns, rows, l) {
-  const keep = columns.map((_, i) => !rows.every((r) => BUTTON_RE.test(r.cells[i] ?? '')));
+  const hasSeatsCol = rows.some((r) => r.available != null);
+  const keep = columns.map((c, i) => !rows.every((r) => BUTTON_RE.test(r.cells[i] ?? '')) && !(hasSeatsCol && c === '잔여')); // 잔여 열은 아래 빈자리 열이 대신한다
   const pick = (arr) => arr.filter((_, i) => keep[i]);
   const hasSeats = rows.some((r) => r.available != null);
   return {
