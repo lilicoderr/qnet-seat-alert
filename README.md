@@ -114,6 +114,7 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 | `historyPath` | – | Append every reading to this JSONL file; view it with `qnet-alert stats` |
 | `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — alerts raised in this window are held and sent once it ends |
 | `jitter` | `0.1` | Randomize each wait by ±this fraction of `intervalMin` (0–0.5) so requests don't land on a fixed beat; see [Polite polling](#polite-polling) |
+| `mentions` | – | `{ "users": [...], "roles": [...], "slack": [...], "cooldownMin": 0, "whileAvailable": true }` — ping people while seats are open, see [Mentions](#mentions) |
 | `rateLimit` | – | `{ "maxPerHour": 6 }` — cap alerts per hour; extra ones are skipped (logged only) |
 
 Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}` — e.g. `"title": "🎯 {name}: {available} seats!"`.
@@ -127,6 +128,26 @@ This tool is alert-only and is meant to be gentle with Q-Net:
 - **Identifiable User-Agent:** requests send `qnet-seat-alert/<version> (+repo URL; personal alert-only watcher; low-frequency)`. A watcher's `headers` can override it.
 - Failures back off exponentially (up to 2 retries); `politeDelayMs` spaces out multiple watchers.
 - It never logs in, never registers and never pays.
+
+### Mentions
+
+When `mentions` (or the `QNET_MENTION_*` env vars) is set, every check that sees an open seat pings the listed people, not only the first closed-to-open transition. `cooldownMin` (default `0` = every check) spaces the repeated pings out; `"whileAvailable": false` restores transition-only alerts. IDs come from config or the environment, never from the code:
+
+```bash
+# .env (placeholders)
+QNET_MENTION_USERS=123456789012345678,234567890123456789   # Discord user IDs
+QNET_MENTION_ROLES=345678901234567890                      # Discord role IDs
+QNET_MENTION_SLACK=U0123ABCD                               # Slack member IDs
+```
+
+Discord sends `<@USER_ID>` / `<@&ROLE_ID>` and sets `allowed_mentions` so **only those IDs** are pinged (never `@everyone`/`@here`). Slack gets `<@U...>`. Telegram does not support ID mentions.
+
+#### How to get a Discord user/role ID
+
+1. Enable Developer Mode: **User Settings > Advanced > Developer Mode**.
+2. User ID: right-click the user, then **Copy User ID** (mobile: long-press the user, or the ... menu, then **Copy User ID**).
+3. Role ID: **Server Settings > Roles > ... > Copy Role ID**. The role needs **Allow anyone to @mention this role** (Roles > the role > Display), otherwise the ping will not notify anyone.
+4. Put the IDs in `.env` as `QNET_MENTION_USERS` / `QNET_MENTION_ROLES` (comma-separated) or in `config.json` under `mentions`.
 
 ### Watchers
 

@@ -1,6 +1,6 @@
 {
   "username": "Q-Net 빈자리 알림",
-  "content": "<@123>",
+  "content": "<@123456789012345678>",
   "embeds": [
     {
       "author": {
@@ -29,9 +29,10 @@
     }
   ],
   "allowed_mentions": {
-    "parse": [
-      "users",
-      "roles"
-    ]
+    "parse": [],
+    "users": [
+      "123456789012345678"
+    ],
+    "roles": []
   }
 }

@@ -26,6 +26,7 @@ const M = {
     'decide.opened': '빈자리 열림: {cur}석 (이전 {prev})',
     'decide.same': '빈자리 {cur} (이전 {prev})',
     'decide.unknown': '미확인',
+    'decide.stillOpen': '빈자리 {n}석 (계속 열려 있음)',
     'decide.noRule': '비교 규칙 없음',
   },
   en: {
@@ -51,6 +52,7 @@ const M = {
     'decide.opened': 'Seats opened: {cur} (was {prev})',
     'decide.same': 'Seats {cur} (was {prev})',
     'decide.unknown': 'unknown',
+    'decide.stillOpen': '{n} seat(s) open (still available)',
     'decide.noRule': 'no comparison rule',
   },
 };

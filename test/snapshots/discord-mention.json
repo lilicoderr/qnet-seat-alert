@@ -1,0 +1,28 @@
+{
+  "username": "Q-Net 빈자리 알림",
+  "content": "<@123456789012345678> <@&345678901234567890> @everyone <@999888777666555444>",
+  "embeds": [
+    {
+      "author": {
+        "name": "Q-Net 빈자리 알림"
+      },
+      "title": "T",
+      "description": "d",
+      "color": 2853438,
+      "footer": {
+        "text": "qnet-seat-alert · alert only"
+      },
+      "timestamp": "2026-12-01T03:00:00.000Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": [],
+    "users": [
+      "123456789012345678",
+      "999888777666555444"
+    ],
+    "roles": [
+      "345678901234567890"
+    ]
+  }
+}

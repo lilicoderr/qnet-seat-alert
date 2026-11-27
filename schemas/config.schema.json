@@ -57,6 +57,18 @@
       "properties": { "maxPerHour": { "type": "integer", "minimum": 1 } }
     },
     "jitter": { "type": "number", "minimum": 0, "maximum": 0.5, "default": 0.1, "description": "Randomize each wait by +/- this fraction of intervalMin" },
+    "mentions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ping people while seats are open. IDs may also come from QNET_MENTION_USERS / QNET_MENTION_ROLES / QNET_MENTION_SLACK.",
+      "properties": {
+        "users": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{15,25}$" } },
+        "roles": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{15,25}$" } },
+        "slack": { "type": "array", "items": { "type": "string", "pattern": "^[UW][A-Z0-9]{2,20}$" } },
+        "cooldownMin": { "type": "number", "minimum": 0, "default": 0 },
+        "whileAvailable": { "type": "boolean", "default": true }
+      }
+    },
     "templates": { "$ref": "#/definitions/template" },
     "statePath": { "type": "string" },
     "historyPath": { "type": "string" },

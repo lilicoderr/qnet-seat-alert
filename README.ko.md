@@ -112,10 +112,31 @@ docker compose up -d --build        # .env 의 QNET_* 값을 주입
 | `historyPath` | – | 측정값을 이 JSONL 파일에 누적, `qnet-alert stats` 로 확인 |
 | `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — 이 시간대에 발생한 알림은 보류했다가 끝나면 전송 |
 | `jitter` | `0.1` | 매 대기 시간을 `intervalMin` 의 ±이 비율만큼 무작위로 흔듦 (0~0.5) |
+| `mentions` | – | `{ "users": [...], "roles": [...], "slack": [...], "cooldownMin": 0, "whileAvailable": true }` — 빈자리가 보이는 동안 멘션 ([멘션](#멘션) 참고) |
 | `rateLimit` | – | `{ "maxPerHour": 6 }` — 시간당 알림 상한 (초과분은 로그만 남기고 건너뜀) |
 
 템플릿 변수: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}`
 예) `"title": "🎯 {name} {available}석!"`
+
+### 멘션
+
+`mentions`(또는 `QNET_MENTION_*` 환경변수)를 설정하면, 닫힘→열림 전환 때만이 아니라 **빈자리가 보이는 매 체크마다** 지정한 사람을 멘션합니다. `cooldownMin`(기본 `0` = 매 체크)으로 간격을 둘 수 있고, `"whileAvailable": false` 면 전환 때만 알립니다. ID 는 코드가 아니라 설정/환경변수로만 받습니다.
+
+```bash
+# .env (자리표시자)
+QNET_MENTION_USERS=123456789012345678,234567890123456789   # Discord 사용자 ID
+QNET_MENTION_ROLES=345678901234567890                      # Discord 역할 ID
+QNET_MENTION_SLACK=U0123ABCD                               # Slack 멤버 ID
+```
+
+Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **해당 ID 만** 알림이 가게 합니다 (`@everyone`/`@here` 불가). Slack 은 `<@U...>` 를 씁니다.
+
+#### Discord 사용자/역할 ID 얻는 법
+
+1. 개발자 모드 켜기: **사용자 설정 > 고급 > 개발자 모드**.
+2. 사용자 ID: 사용자 우클릭 후 **사용자 ID 복사** (모바일: 사용자를 길게 누르거나 ... 메뉴에서 **사용자 ID 복사**).
+3. 역할 ID: **서버 설정 > 역할 > ... > 역할 ID 복사**. 역할은 **모든 사람이 이 역할을 멘션하도록 허용** 이 켜져 있어야 알림이 갑니다.
+4. `.env` 의 `QNET_MENTION_USERS` / `QNET_MENTION_ROLES` (쉼표 구분) 또는 `config.json` 의 `mentions` 에 넣으세요.
 
 ### Watcher
 

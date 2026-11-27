@@ -11,6 +11,7 @@ import { langOf, t, usernameOf } from './i18n.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
 import { isDue } from './cron.js';
+import { mentionsFromConfig, mentionDue, recordMention } from './mentions.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -111,9 +112,16 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       if (config.politeDelayMs) await sleep(config.politeDelayMs);
       continue;
     }
+    // 멘션이 설정돼 있으면 빈자리가 보이는 동안 매 체크(쿨다운 반영) 다시 알린다
+    const mm = mentionsFromConfig(config);
+    if (r.ok && !r.shouldAlert && mm.any && mm.whileAvailable && r.available > 0 && mentionDue(mm, store, r.id, now())) {
+      r.shouldAlert = true;
+      r.reason = t(langOf(config), 'decide.stillOpen', { n: r.available });
+    }
     const send = r.ok && r.shouldAlert && gateAlert(config, { store, watcher, r, quiet, now });
     const toDigest = send && config.digest && !watcher.webhookUrl;
     if (toDigest) pending.push({ watcher, r });
+    if (send && mm.any && r.available > 0) recordMention(store, r.id, now());
     if (send && !toDigest) {
       const notifiers = resolveNotifiers(config, watcher);
       if (notifiers.length > 0) {
@@ -232,6 +240,7 @@ export function buildAlertPayload(watcher, r, config = {}) {
     fields,
     linkLabel: t(lang, 'openLink'),
     content: watcher.mention || '',
+    mentions: (r.available ?? 1) > 0 ? mentionsFromConfig(config) : undefined,
   };
 }
 

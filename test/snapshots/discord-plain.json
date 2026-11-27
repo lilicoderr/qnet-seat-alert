@@ -16,9 +16,8 @@
     }
   ],
   "allowed_mentions": {
-    "parse": [
-      "users",
-      "roles"
-    ]
+    "parse": [],
+    "users": [],
+    "roles": []
   }
 }

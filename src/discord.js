@@ -1,5 +1,7 @@
 // Discord 웹훅 전송.
 
+import { discordMentionText, allowedMentionsFor } from './mentions.js';
+
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
 // 웹훅 URL 형식 검사 (실수로 다른 URL 보내는 것 방지)
@@ -31,7 +33,9 @@ export function buildDiscordBody(payload, { username = 'Q-Net 빈자리 알림',
 
 [${payload.linkLabel}](${payload.url})`.trim().slice(0, 4096);
   }
-  return { username, content: payload.content || '', embeds: [embed], allowed_mentions: { parse: ['users', 'roles'] } };
+  // 멘션: 설정된 ID + 워처의 mention 텍스트. 본문에 실제로 있는 ID 만 핑되도록 allowed_mentions 를 좁힌다.
+  const content = [discordMentionText(payload.mentions), payload.content].filter(Boolean).join(' ').slice(0, 2000);
+  return { username, content, embeds: [embed], allowed_mentions: allowedMentionsFor(content) };
 }
 
 // 알림 1건 전송. payload: { title, description, url, fields, color, linkLabel }

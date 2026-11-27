@@ -5,6 +5,7 @@ import { resolveNotifiers, validateNotifier } from './notify.js';
 import { didYouMean } from './suggest.js';
 import { validateThrottle } from './throttle.js';
 import { parseCron } from './cron.js';
+import { validateMentions } from './mentions.js';
 import { TEMPLATE_VARS, unknownVars } from './template.js';
 
 const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex'];
@@ -13,7 +14,7 @@ const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
   '$schema', 'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
-  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'lang', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit', 'jitter',
+  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'lang', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit', 'jitter', 'mentions',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
@@ -69,6 +70,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   if (config.jitter != null && !(typeof config.jitter === 'number' && config.jitter >= 0 && config.jitter <= 0.5)) errors.push('jitter 는 0~0.5 사이 숫자(간격 대비 비율)여야 합니다.');
   checkNumber(config, 'metricsPort', errors, { min: 1 });
   validateThrottle(config, errors);
+  validateMentions(config, errors, warnings);
   if (config.lang != null && !['ko', 'en'].includes(config.lang)) errors.push(`lang 은 'ko' 또는 'en' 이어야 합니다. (현재: ${JSON.stringify(config.lang)})`);
   if (config.digest != null && typeof config.digest !== 'boolean') errors.push('digest 는 true/false 여야 합니다.');
   if (config.watchers != null && !Array.isArray(config.watchers)) {

@@ -5,6 +5,7 @@ import { isWebhookUrl, sendAlert as sendDiscord, FOOTER_TEXT } from './discord.j
 import { getPlugin } from './plugins.js';
 import { sendMail } from './smtp.js';
 import { redactAll } from './redact.js';
+import { slackMentionText } from './mentions.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -99,7 +100,8 @@ export function buildSlackBody(payload) {
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: String(payload.title || '알림').slice(0, 150), emoji: true } },
   ];
-  if (payload.content) blocks.push({ type: 'section', text: { type: 'mrkdwn', text: String(payload.content).slice(0, 2900) } });
+  const ping = [slackMentionText(payload.mentions), payload.content].filter(Boolean).join(' ');
+  if (ping) blocks.push({ type: 'section', text: { type: 'mrkdwn', text: ping.slice(0, 2900) } });
   if (payload.description) {
     blocks.push({ type: 'section', text: { type: 'mrkdwn', text: String(payload.description).slice(0, 2900) } });
   }
