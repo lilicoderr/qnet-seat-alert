@@ -1,0 +1,24 @@
+{
+  "username": "Q-Net 빈자리 알림",
+  "content": "",
+  "embeds": [
+    {
+      "author": {
+        "name": "Q-Net 빈자리 알림"
+      },
+      "title": "Test",
+      "description": "hello",
+      "color": 2853438,
+      "footer": {
+        "text": "qnet-seat-alert · alert only"
+      },
+      "timestamp": "2026-12-01T03:00:00.000Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": [
+      "users",
+      "roles"
+    ]
+  }
+}

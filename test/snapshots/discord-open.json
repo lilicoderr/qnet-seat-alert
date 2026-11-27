@@ -1,0 +1,37 @@
+{
+  "username": "Q-Net 빈자리 알림",
+  "content": "<@123>",
+  "embeds": [
+    {
+      "author": {
+        "name": "Q-Net 빈자리 알림"
+      },
+      "title": "🎯 전기기능사 서울 — 3석",
+      "description": "0 → 3석으로 늘었습니다.\n\n[Q-Net 열기](https://example.test/status)",
+      "color": 2853438,
+      "footer": {
+        "text": "qnet-seat-alert · alert only"
+      },
+      "timestamp": "2026-12-01T03:00:00.000Z",
+      "url": "https://example.test/status",
+      "fields": [
+        {
+          "name": "잔여석",
+          "value": "3석",
+          "inline": true
+        },
+        {
+          "name": "신청/정원",
+          "value": "27/30",
+          "inline": true
+        }
+      ]
+    }
+  ],
+  "allowed_mentions": {
+    "parse": [
+      "users",
+      "roles"
+    ]
+  }
+}

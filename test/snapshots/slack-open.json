@@ -1,0 +1,63 @@
+{
+  "text": "🎯 전기기능사 서울 — 3석\n0 → 3석으로 늘었습니다.\n잔여석: 3석\n신청/정원: 27/30\nhttps://example.test/status",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🎯 전기기능사 서울 — 3석",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "<@123>"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "0 → 3석으로 늘었습니다."
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*잔여석*\n3석"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*신청/정원*\n27/30"
+        }
+      ]
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "style": "primary",
+          "text": {
+            "type": "plain_text",
+            "text": "Q-Net 열기"
+          },
+          "url": "https://example.test/status"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "qnet-seat-alert · alert only"
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 // 알림 채널 추상화: Discord / Slack / Telegram / 일반 웹훅. 모두 "알림 전용".
 // 비밀값(웹훅 URL·봇 토큰)은 설정 파일 대신 환경변수로도 줄 수 있다.
 
-import { isWebhookUrl, sendAlert as sendDiscord } from './discord.js';
+import { isWebhookUrl, sendAlert as sendDiscord, FOOTER_TEXT } from './discord.js';
 import { getPlugin } from './plugins.js';
 import { sendMail } from './smtp.js';
 
@@ -93,25 +93,29 @@ async function postJson(fetchImpl, url, body) {
   }
 }
 
+// Slack Block Kit 본문 (순수 함수 — 스냅샷 테스트 대상)
 export function buildSlackBody(payload) {
   const blocks = [
-    { type: 'header', text: { type: 'plain_text', text: String(payload.title || '알림').slice(0, 150) } },
+    { type: 'header', text: { type: 'plain_text', text: String(payload.title || '알림').slice(0, 150), emoji: true } },
   ];
+  if (payload.content) blocks.push({ type: 'section', text: { type: 'mrkdwn', text: String(payload.content).slice(0, 2900) } });
   if (payload.description) {
     blocks.push({ type: 'section', text: { type: 'mrkdwn', text: String(payload.description).slice(0, 2900) } });
   }
   if (payload.fields?.length) {
     blocks.push({
       type: 'section',
-      fields: payload.fields.slice(0, 10).map((f) => ({ type: 'mrkdwn', text: `*${f.name}*\n${f.value}` })),
+      fields: payload.fields.slice(0, 10).map((f) => ({ type: 'mrkdwn', text: `*${f.name}*
+${f.value}`.slice(0, 2000) })),
     });
   }
   if (payload.url) {
     blocks.push({
       type: 'actions',
-      elements: [{ type: 'button', text: { type: 'plain_text', text: payload.linkLabel || 'Q-Net 열기' }, url: payload.url }],
+      elements: [{ type: 'button', style: 'primary', text: { type: 'plain_text', text: payload.linkLabel || 'Q-Net 열기' }, url: payload.url }],
     });
   }
+  blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: FOOTER_TEXT }] });
   return { text: plainText(payload), blocks };
 }
 

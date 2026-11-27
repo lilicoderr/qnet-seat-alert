@@ -60,6 +60,6 @@ test('notifyAll: 일부 실패해도 나머지 전송, 비밀값은 로그에서
 });
 
 test('build 바디: 슬랙 버튼/텔레그램 길이 제한', () => {
-  assert.equal(buildSlackBody(payload).blocks.at(-1).type, 'actions');
+  assert.equal(buildSlackBody(payload).blocks.at(-2).type, 'actions');
   assert.ok(buildTelegramBody('1', { title: 'x'.repeat(9000) }).text.length <= 4000);
 });
