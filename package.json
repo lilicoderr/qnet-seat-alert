@@ -11,6 +11,8 @@
     "start": "node bin/qnet-alert.js",
     "once": "node bin/qnet-alert.js --once",
     "test": "node --test",
+    "coverage": "node --test --experimental-test-coverage",
+    "init": "node bin/qnet-alert.js init",
     "dry": "node bin/qnet-alert.js --dry"
   },
   "engines": {
