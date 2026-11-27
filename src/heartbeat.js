@@ -2,6 +2,7 @@
 // 첫 실행에는 기준 시각만 기록하고 보내지 않는다(시작할 때마다 스팸 방지).
 
 import { notifyAll, resolveNotifiers } from './notify.js';
+import { langOf, t, usernameOf } from './i18n.js';
 
 const KEY = '__heartbeat';
 
@@ -13,13 +14,13 @@ export function heartbeatDue(config, store, now = Date.now()) {
   return { due: now - prev.at >= hours * 3600 * 1000, first: false };
 }
 
-export function buildHeartbeatPayload(results = [], uptimeMs = 0) {
+export function buildHeartbeatPayload(results = [], uptimeMs = 0, lang = 'ko') {
   const ok = results.filter((r) => r.ok).length;
   const bad = results.length - ok;
   const lines = results.map((r) => `${r.ok ? '✅' : '❌'} ${r.name || r.id}${r.ok ? ` · signal=${r.signal}` : ` · ${r.error}`}`);
   return {
-    title: '💓 Q-Net 감시기 정상 동작 중',
-    description: `워처 ${results.length}개 (정상 ${ok}, 오류 ${bad}) · 가동 ${Math.floor(uptimeMs / 3600000)}시간\n${lines.join('\n')}`.slice(0, 1800),
+    title: t(lang, 'heartbeat.title'),
+    description: `${t(lang, 'heartbeat.desc', { total: results.length, ok, bad, hours: Math.floor(uptimeMs / 3600000) })}\n${lines.join('\n')}`.slice(0, 1800),
     color: bad ? 0xf08c00 : 0x2b8a3e,
   };
 }
@@ -34,9 +35,9 @@ export async function maybeHeartbeat(config, { store, results, fetchImpl, now = 
   if (!due) return 'skipped';
   const notifiers = resolveNotifiers(config);
   if (notifiers.length === 0) return 'skipped';
-  const { delivered } = await notifyAll(notifiers, buildHeartbeatPayload(results, now() - startedAt), {
+  const { delivered } = await notifyAll(notifiers, buildHeartbeatPayload(results, now() - startedAt, langOf(config)), {
     fetchImpl,
-    username: config.username || 'Q-Net 빈자리 알림',
+    username: usernameOf(config),
   });
   if (delivered > 0) {
     store.set(KEY, {});

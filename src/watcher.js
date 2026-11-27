@@ -3,9 +3,11 @@
 // prev, cur: evaluate() 결과 ({ kind, signal, available? })
 // watcher.alertOn (seats): 'open'(0→>0, 기본) | 'increase' | 'change' | 'available'
 // watcher.alertWhen (contains): 'present' | 'absent' | 'change'
-export function decide(prev, cur, watcher) {
+import { t } from './i18n.js';
+
+export function decide(prev, cur, watcher, lang = 'ko') {
   if (cur.signal === null || cur.signal === undefined) {
-    return { alert: false, reason: '신호 없음(추출 실패)' };
+    return { alert: false, reason: t(lang, 'decide.noSignal') };
   }
   const first = !prev || prev.signal === null || prev.signal === undefined;
 
@@ -15,18 +17,18 @@ export function decide(prev, cur, watcher) {
     const mode = watcher.alertOn || 'open';
     switch (mode) {
       case 'available':
-        return { alert: curN > 0, reason: curN > 0 ? `빈자리 ${curN}석` : '빈자리 없음' };
+        return { alert: curN > 0, reason: curN > 0 ? t(lang, 'decide.available', { n: curN }) : t(lang, 'decide.none') };
       case 'change':
         return { alert: !first && prevN !== curN, reason: `${prevN} → ${curN}` };
       case 'increase':
-        return { alert: !first && curN > prevN, reason: `${prevN} → ${curN} (증가)` };
+        return { alert: !first && curN > prevN, reason: t(lang, 'decide.increase', { prev: prevN, cur: curN }) };
       case 'open':
       default:
         // 0(또는 이전 0/미확인) → 1 이상으로 열림
         if (curN > 0 && (first || prevN === 0)) {
-          return { alert: true, reason: `빈자리 열림: ${curN}석 (이전 ${first ? '미확인' : prevN})` };
+          return { alert: true, reason: t(lang, 'decide.opened', { cur: curN, prev: first ? t(lang, 'decide.unknown') : prevN }) };
         }
-        return { alert: false, reason: `빈자리 ${curN} (이전 ${first ? '미확인' : prevN})` };
+        return { alert: false, reason: t(lang, 'decide.same', { cur: curN, prev: first ? t(lang, 'decide.unknown') : prevN }) };
     }
   }
 
@@ -45,5 +47,5 @@ export function decide(prev, cur, watcher) {
     return { alert: !first && prev.signal !== cur.signal, reason: `${prev?.signal} → ${cur.signal}` };
   }
 
-  return { alert: false, reason: '비교 규칙 없음' };
+  return { alert: false, reason: t(lang, 'decide.noRule') };
 }

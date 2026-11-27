@@ -7,6 +7,7 @@ import { formatLine } from './log.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
 import { renderTemplate, varsFor } from './template.js';
 import { buildParserBrokenPayload } from './parser-alert.js';
+import { langOf, t, usernameOf } from './i18n.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
 
@@ -49,7 +50,7 @@ async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, 
 // 워처 하나를 가져와 평가/비교. 네트워크 주입 가능.
 export async function runWatcher(
   watcher,
-  { store, fetchImpl = DEFAULT_FETCH, timeoutMs = 15000, retries = 2, backoffBaseMs = 1000, sleepImpl = sleep } = {},
+  { store, fetchImpl = DEFAULT_FETCH, timeoutMs = 15000, retries = 2, backoffBaseMs = 1000, sleepImpl = sleep, lang = 'ko' } = {},
 ) {
   const id = watcher.id || watcher.name || watcher.url;
   let text = '';
@@ -68,7 +69,7 @@ export async function runWatcher(
   if (watcher.type !== 'jsonseats') text = filterRows(text, watcher).text;
   const cur = evaluate(watcher, text);
   const prev = store?.get(id);
-  const verdict = decide(prev, cur, watcher);
+  const verdict = decide(prev, cur, watcher, lang);
 
   // 현재 신호 저장 (항상 최신으로)
   // 신호를 못 뽑았으면 이전 신호는 보존하고 연속 횟수만 센다 (복구 시 정상 비교)
@@ -99,7 +100,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
   if (!dry && !quiet) await flushHeld(config, { store, fetchImpl, log, now });
   for (const watcher of config.watchers || []) {
     if (watcher.enabled === false) continue;
-    const r = await runWatcher(watcher, { store, fetchImpl, ...runOpts });
+    const r = await runWatcher(watcher, { store, fetchImpl, lang: langOf(config), ...runOpts });
     if (dry) {
       r.dry = true;
       emit(r);
@@ -115,7 +116,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       if (notifiers.length > 0) {
         const { delivered, errors } = await notifyAll(notifiers, buildAlertPayload(watcher, r, config), {
           fetchImpl,
-          username: config.username || 'Q-Net 빈자리 알림',
+          username: usernameOf(config),
         });
         r.alerted = delivered > 0;
         if (errors.length) r.alertError = errors.join('; ');
@@ -129,11 +130,11 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
       const notifiers = resolveNotifiers(config, watcher);
       if (notifiers.length) {
         const { delivered } = await notifyAll(notifiers, {
-          title: `⚠️ ${watcher.name || 'Q-Net'} 감시 오류 지속`,
-          description: `${r.failures}회 연속 실패: ${r.error}`,
+          title: t(langOf(config), 'fail.title', { name: watcher.name || 'Q-Net' }),
+          description: t(langOf(config), 'fail.desc', { n: r.failures, err: r.error }),
           url: watcher.linkUrl || watcher.url,
           color: 0xe03131,
-        }, { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+        }, { fetchImpl, username: usernameOf(config) });
         r.alerted = delivered > 0;
       }
     }
@@ -141,7 +142,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
     if (r.ok && plimit > 0 && r.nullStreak === plimit) {
       const notifiers = resolveNotifiers(config, watcher);
       if (notifiers.length) {
-        const { delivered } = await notifyAll(notifiers, buildParserBrokenPayload(watcher, r), { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+        const { delivered } = await notifyAll(notifiers, buildParserBrokenPayload(watcher, r, langOf(config)), { fetchImpl, username: usernameOf(config) });
         r.alerted = delivered > 0;
       }
     }
@@ -156,12 +157,12 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
 
 async function sendDigest(config, pending, { fetchImpl }) {
   const notifiers = resolveNotifiers(config);
-  const payload = pending.length === 1 ? buildAlertPayload(pending[0].watcher, pending[0].r, config) : buildDigestPayload(pending);
+  const payload = pending.length === 1 ? buildAlertPayload(pending[0].watcher, pending[0].r, config) : buildDigestPayload(pending, langOf(config));
   if (!notifiers.length) {
     for (const { r } of pending) r.alertError = '알림 채널 없음';
     return;
   }
-  const { delivered, errors } = await notifyAll(notifiers, payload, { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+  const { delivered, errors } = await notifyAll(notifiers, payload, { fetchImpl, username: usernameOf(config) });
   for (const { r } of pending) {
     r.alerted = delivered > 0;
     if (errors.length) r.alertError = errors.join('; ');
@@ -193,7 +194,7 @@ export async function flushHeld(config, { store, fetchImpl, log = () => {}, now 
   let sent = 0;
   for (const payload of Object.values(items)) {
     if (!takeRateSlot(config, store, now())) break;
-    const { delivered } = await notifyAll(notifiers, payload, { fetchImpl, username: config.username || 'Q-Net 빈자리 알림' });
+    const { delivered } = await notifyAll(notifiers, payload, { fetchImpl, username: usernameOf(config) });
     if (delivered > 0) sent++;
   }
   store.set('__held', { items: {} });
@@ -204,19 +205,21 @@ export async function flushHeld(config, { store, fetchImpl, log = () => {}, now 
 export function buildAlertPayload(watcher, r, config = {}) {
   const tpl = { ...(config.templates || {}), ...(watcher.template || {}) };
   const vars = varsFor(watcher, r);
+  const lang = langOf(config);
   const fields = [];
   if (r.available !== null && r.available !== undefined) {
-    fields.push({ name: '빈자리', value: `${r.available}석`, inline: true });
+    fields.push({ name: t(lang, 'field.seats'), value: t(lang, 'field.seatsVal', { n: r.available }), inline: true });
   }
   if (r.detail && typeof r.detail === 'object' && r.detail.capacity != null) {
-    fields.push({ name: '정원/접수', value: `${r.detail.applied}/${r.detail.capacity}`, inline: true });
+    fields.push({ name: t(lang, 'field.cap'), value: `${r.detail.applied}/${r.detail.capacity}`, inline: true });
   }
   return {
-    title: tpl.title ? renderTemplate(tpl.title, vars) : `🔔 ${watcher.name || 'Q-Net'} 변화 감지`,
+    title: tpl.title ? renderTemplate(tpl.title, vars) : t(lang, 'alert.title', { name: watcher.name || 'Q-Net' }),
     description: tpl.description ? renderTemplate(tpl.description, vars) : r.reason,
     url: watcher.linkUrl || watcher.url,
     color: (r.available ?? 1) > 0 ? 0x2b8a3e : 0x868e96,
     fields,
+    linkLabel: t(lang, 'openLink'),
     content: watcher.mention || '',
   };
 }

@@ -12,7 +12,7 @@ const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
   '$schema', 'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
-  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit',
+  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'lang', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
@@ -67,6 +67,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   checkNumber(config, 'parserAlertAfter', errors);
   checkNumber(config, 'metricsPort', errors, { min: 1 });
   validateThrottle(config, errors);
+  if (config.lang != null && !['ko', 'en'].includes(config.lang)) errors.push(`lang 은 'ko' 또는 'en' 이어야 합니다. (현재: ${JSON.stringify(config.lang)})`);
   if (config.digest != null && typeof config.digest !== 'boolean') errors.push('digest 는 true/false 여야 합니다.');
   if (config.watchers != null && !Array.isArray(config.watchers)) {
     errors.push('watchers 는 배열이어야 합니다.');

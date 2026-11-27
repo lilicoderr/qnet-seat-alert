@@ -38,6 +38,7 @@
     "failureAlertAfter": { "type": "number", "minimum": 0, "default": 5 },
     "parserAlertAfter": { "type": "number", "minimum": 0, "default": 3 },
     "heartbeatHours": { "type": "number", "minimum": 0 },
+    "lang": { "enum": ["ko", "en"], "default": "ko", "description": "Language of built-in alert messages" },
     "digest": { "type": "boolean", "default": false },
     "quietHours": {
       "type": "object",

@@ -109,7 +109,7 @@ export function buildSlackBody(payload) {
   if (payload.url) {
     blocks.push({
       type: 'actions',
-      elements: [{ type: 'button', text: { type: 'plain_text', text: 'Q-Net 열기' }, url: payload.url }],
+      elements: [{ type: 'button', text: { type: 'plain_text', text: payload.linkLabel || 'Q-Net 열기' }, url: payload.url }],
     });
   }
   return { text: plainText(payload), blocks };
