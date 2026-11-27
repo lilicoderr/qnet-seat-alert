@@ -84,11 +84,22 @@ test('init --preset gineungsa: 1분 간격, newrows, 표 이미지, 비밀값 �
   const { config, written } = runPreset('gineungsa', { dir, output: sink() });
   assert.deepEqual(written.sort(), ['.env.example', 'config.json']);
   assert.equal(config.intervalMin, 1);
-  assert.equal(config.watchers[0].type, 'newrows');
+  assert.deepEqual(config.watchers.map((w) => w.type), ['qnet', 'newrows']);
   assert.equal(config.tableImage.every, true);
   assert.ok(validateConfig(config, { requireWebhook: false }).errors.length === 0);
   const raw = fs.readFileSync(path.join(dir, 'config.json'), 'utf8');
   assert.ok(!/discord\.com\/api\/webhooks|token/i.test(raw));
-  assert.match(config.comment, /CANNOT SEE: remaining seats/);
+  assert.match(config.comment, /type qnet/);
   assert.throws(() => runPreset('nope', { dir, output: sink() }), /unknown preset/);
+});
+
+test('CLI: qnet-alert init --preset gineungsa --jongmok X --region Y writes config.json', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const dir = tmp();
+  const bin = fileURLToPath(new URL('../bin/qnet-alert.js', import.meta.url));
+  const r = spawnSync(process.execPath, [bin, 'init', '--preset', 'gineungsa', '--jongmok', '건축도장', '--region', '서울'], { cwd: dir, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const w = JSON.parse(fs.readFileSync(path.join(dir, 'config.json'), 'utf8')).watchers[0];
+  assert.deepEqual([w.type, w.jongmok, w.region], ['qnet', '건축도장', '서울']);
 });

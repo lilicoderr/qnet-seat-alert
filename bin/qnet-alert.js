@@ -37,8 +37,11 @@ function parseArgs(argv) {
 
 async function main() {
   if (process.argv[2] === 'init') {
-    const { runInit } = await import('../src/init.js');
-    await runInit({ force: process.argv.includes('--force') });
+    const { runInit, runPreset } = await import('../src/init.js');
+    const arg = (n) => { const k = process.argv.indexOf(n); return k > 0 ? process.argv[k + 1] : undefined; };
+    const force = process.argv.includes('--force');
+    if (arg('--preset')) runPreset(arg('--preset'), { force, jongmok: arg('--jongmok'), region: arg('--region') });
+    else await runInit({ force });
     return;
   }
   if (process.argv[2] === 'stats') {

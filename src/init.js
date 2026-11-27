@@ -84,8 +84,8 @@ export function writeFiles(dir, config, envExample, { force = false } = {}) {
 }
 
 // 프리셋: 질문 없이 설정 파일을 쓴다.
-export function runPreset(name, { output = process.stderr, dir = process.cwd(), force = false } = {}) {
-  const config = presetConfig(name);
+export function runPreset(name, { output = process.stderr, dir = process.cwd(), force = false, jongmok, region } = {}) {
+  const config = presetConfig(name, { jongmok, region });
   const env = `${buildEnvExample(['discord'])}# QNET_MENTION_USERS=   # your Discord user ID(s), comma separated\n`;
   const { written, skipped } = writeFiles(dir, config, env, { force });
   for (const f of written) output.write(`OK  ${f} created\n`);
