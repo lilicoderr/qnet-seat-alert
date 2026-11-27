@@ -34,7 +34,7 @@ export function buildConfig(a) {
 
   const cfg = {
     comment: '비밀값(웹훅/토큰)은 .env 에 두세요. 이 파일은 커밋 금지.',
-    intervalMin: Math.max(2, Number(a.intervalMin) || 5),
+    intervalMin: Math.max(1, Number(a.intervalMin) || 5),
     politeDelayMs: 1500,
     failureAlertAfter: 5,
     statePath: 'state.json',

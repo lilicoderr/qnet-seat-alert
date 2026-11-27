@@ -113,6 +113,7 @@ docker compose up -d --build        # .env 의 QNET_* 값을 주입
 | `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — 이 시간대에 발생한 알림은 보류했다가 끝나면 전송 |
 | `jitter` | `0.1` | 매 대기 시간을 `intervalMin` 의 ±이 비율만큼 무작위로 흔듦 (0~0.5) |
 | `mentions` | – | `{ "users": [...], "roles": [...], "slack": [...], "cooldownMin": 0, "whileAvailable": true }` — 빈자리가 보이는 동안 멘션 ([멘션](#멘션) 참고) |
+| `tableImage` | – | `{ "every": false, "chrome": "", "width": 960 }` — 현황표를 PNG 로 첨부 ([현황표 이미지](#현황표-이미지) 참고) |
 | `rateLimit` | – | `{ "maxPerHour": 6 }` — 시간당 알림 상한 (초과분은 로그만 남기고 건너뜀) |
 
 템플릿 변수: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}`
@@ -137,6 +138,21 @@ Discord 는 `<@USER_ID>` / `<@&ROLE_ID>` 를 보내고 `allowed_mentions` 로 **
 2. 사용자 ID: 사용자 우클릭 후 **사용자 ID 복사** (모바일: 사용자를 길게 누르거나 ... 메뉴에서 **사용자 ID 복사**).
 3. 역할 ID: **서버 설정 > 역할 > ... > 역할 ID 복사**. 역할은 **모든 사람이 이 역할을 멘션하도록 허용** 이 켜져 있어야 알림이 갑니다.
 4. `.env` 의 `QNET_MENTION_USERS` / `QNET_MENTION_ROLES` (쉼표 구분) 또는 `config.json` 의 `mentions` 에 넣으세요.
+
+### 현황표 이미지
+
+`tableImage` 를 설정하면 현재 현황표(시행일·지역·시험장소·종목·정원·접수·빈자리)를 PNG 로 그려 웹훅 메시지에 첨부합니다. 맨 위 줄은 **2026-11-27 14:03 KST 기준** 처럼 확인 시각(KST)이고, 빈자리가 있는 행은 초록색으로 강조됩니다.
+
+```json
+{ "tableImage": { "every": true } }
+```
+
+- `every: true` 면 체크마다 보내고, 기본값 `false` 는 지난 체크와 표가 달라졌을 때만 보냅니다 (첫 체크는 변화로 취급).
+- Discord 는 multipart 파일 업로드(같은 `allowed_mentions` 규칙), Telegram 은 `sendPhoto` 를 씁니다. Slack 인커밍 웹훅은 파일 업로드가 안 되어 텍스트 알림만 갑니다.
+- **렌더러 선택:** npm 의존성·Playwright 없이, 설치된 Chrome/Chromium/Edge 의 headless 스크린샷을 씁니다 (자동 탐지, `tableImage.chrome` 또는 `QNET_CHROME` 으로 지정). 브라우저가 없으면 이미지만 건너뛰고 오류를 기록하며 텍스트 알림은 그대로 갑니다.
+- 가상의 fixture 데이터로 만든 샘플 (`node scripts/make-sample-image.js`):
+
+![샘플 현황표 이미지](docs/table-sample.png)
 
 ### Watcher
 

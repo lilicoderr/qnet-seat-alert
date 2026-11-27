@@ -6,6 +6,7 @@ import { didYouMean } from './suggest.js';
 import { validateThrottle } from './throttle.js';
 import { parseCron } from './cron.js';
 import { validateMentions } from './mentions.js';
+import { validateTableImage } from './table-image.js';
 import { TEMPLATE_VARS, unknownVars } from './template.js';
 
 const WATCHER_TYPES = ['seats', 'jsonseats', 'contains', 'regex'];
@@ -14,7 +15,7 @@ const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
   '$schema', 'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
-  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'lang', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit', 'jitter', 'mentions',
+  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'lang', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit', 'jitter', 'mentions', 'tableImage',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
@@ -71,6 +72,7 @@ export function validateConfig(config, { requireWebhook = true } = {}) {
   checkNumber(config, 'metricsPort', errors, { min: 1 });
   validateThrottle(config, errors);
   validateMentions(config, errors, warnings);
+  validateTableImage(config, errors, warnings);
   if (config.lang != null && !['ko', 'en'].includes(config.lang)) errors.push(`lang 은 'ko' 또는 'en' 이어야 합니다. (현재: ${JSON.stringify(config.lang)})`);
   if (config.digest != null && typeof config.digest !== 'boolean') errors.push('digest 는 true/false 여야 합니다.');
   if (config.watchers != null && !Array.isArray(config.watchers)) {

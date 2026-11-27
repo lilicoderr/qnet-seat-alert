@@ -41,3 +41,15 @@ test('최소 간격은 60초: 1분 허용, 그 아래는 1분으로 올림 + 경
   assert.ok(!validateConfig({ ...base, intervalMin: 1 }).warnings.some((w) => /intervalMin/.test(w)));
   assert.match(validateConfig({ ...base, intervalMin: 0.5 }).warnings.join(), /1분/);
 });
+
+test('간격 하한: 60초 (1분 허용, 그 미만은 1분으로 올림)', () => {
+  assert.equal(MIN_INTERVAL_MIN, 1);
+  assert.equal(nextDelayMs(1, 0, () => 0.5), 60000);
+  assert.equal(nextDelayMs(0.1, 0.5, () => 0), 60000);
+  const base = { webhookUrl: 'https://discord.com/api/webhooks/' + '1/abc', watchers: [{ url: 'https://x.test/', name: 'a' }] };
+  const ok = validateConfig({ ...base, intervalMin: 1 });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.warnings.some((w) => w.includes('intervalMin')), false);
+  const low = validateConfig({ ...base, intervalMin: 0.5 });
+  assert.ok(low.warnings.some((w) => w.includes('1분')));
+});

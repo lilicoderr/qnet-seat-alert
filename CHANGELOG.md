@@ -2,6 +2,15 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [1.4.0] — 2026-11-27
+### Added
+- `tableImage`: the seat-status table rendered as a PNG (KST check time as the top line, open rows highlighted) and attached to Discord (multipart) / Telegram; `every: true` sends it on every check, otherwise only when the table changes. Rendered with system Chrome/Edge headless (no new dependency)
+- `mentions` (`QNET_MENTION_USERS` / `QNET_MENTION_ROLES` / `QNET_MENTION_SLACK`): ping users/roles on every check that sees an open seat, optional `cooldownMin`, Discord `allowed_mentions` limited to exactly those IDs; README section on getting Discord user/role IDs
+- Sample table image (`docs/table-sample.png`, fictional data) and `scripts/make-sample-image.js`
+
+### Changed
+- Minimum polling interval lowered from 2 minutes to 60 seconds (jitter and the identifiable User-Agent are kept)
+
 ## [1.3.0] — 2026-11-27
 ### Added
 - Notifier plugin interface (`plugins`, `docs/plugins.md`, `examples/console-notifier.js`)

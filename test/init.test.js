@@ -15,7 +15,7 @@ test('buildConfig: 키워드 분리, 최소 간격, 선택 키 생략', () => {
   const w = c.watchers[0];
   assert.deepEqual(w.include, ['서울', '전기기능사']);
   assert.deepEqual(w.exclude, ['마감']);
-  assert.equal(c.intervalMin, 2);
+  assert.equal(c.intervalMin, 1);
   assert.equal('linkUrl' in w, false);
   assert.equal('dateFrom' in w, false);
 });

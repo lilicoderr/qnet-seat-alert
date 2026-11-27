@@ -11,6 +11,7 @@ import { langOf, t, usernameOf } from './i18n.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
 import { isDue } from './cron.js';
+import { sendTableImage, tableImageConfig } from './table-image.js';
 import { mentionsFromConfig, mentionDue, recordMention } from './mentions.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
@@ -69,6 +70,7 @@ export async function runWatcher(
     return { id, name: watcher.name, ok: false, error: e.message, failures, alerted: false };
   }
 
+  const rawText = text;
   if (watcher.type !== 'jsonseats') text = filterRows(text, watcher).text;
   const cur = evaluate(watcher, text);
   const prev = store?.get(id);
@@ -79,7 +81,7 @@ export async function runWatcher(
   const nullStreak = cur.signal === null || cur.signal === undefined ? (prev?.nullStreak || 0) + 1 : 0;
   store?.set(id, nullStreak ? { ...(prev || {}), kind: cur.kind, failures: 0, nullStreak } : { signal: cur.signal, kind: cur.kind, failures: 0, nullStreak: 0 });
 
-  return {
+  const result = {
     id,
     name: watcher.name,
     ok: true,
@@ -92,6 +94,9 @@ export async function runWatcher(
     nullStreak,
     alerted: false,
   };
+  // 현황표 이미지용 원문 (JSON/로그에는 나오지 않도록 열거 불가)
+  Object.defineProperty(result, 'rawText', { value: rawText, enumerable: false });
+  return result;
 }
 
 // 전체 설정 1회 실행. 알림까지 보낸다.
@@ -156,6 +161,11 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
         const { delivered } = await notifyAll(notifiers, buildParserBrokenPayload(watcher, r, langOf(config)), { fetchImpl, username: usernameOf(config) });
         r.alerted = delivered > 0;
       }
+    }
+    if (tableImageConfig(config)) {
+      const notifiers = resolveNotifiers(config, watcher);
+      const ti = await sendTableImage({ config, watcher, r, notifiers, store, fetchImpl, username: usernameOf(config), now: now(), renderImpl: runOpts.renderImpl });
+      if (ti.errors.length) r.alertError = [r.alertError, ...ti.errors].filter(Boolean).join('; ');
     }
     emit(r);
     results.push(r);

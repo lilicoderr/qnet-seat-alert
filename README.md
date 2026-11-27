@@ -115,6 +115,7 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 | `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — alerts raised in this window are held and sent once it ends |
 | `jitter` | `0.1` | Randomize each wait by ±this fraction of `intervalMin` (0–0.5) so requests don't land on a fixed beat; see [Polite polling](#polite-polling) |
 | `mentions` | – | `{ "users": [...], "roles": [...], "slack": [...], "cooldownMin": 0, "whileAvailable": true }` — ping people while seats are open, see [Mentions](#mentions) |
+| `tableImage` | – | `{ "every": false, "chrome": "", "width": 960 }` — attach the seat table as a PNG, see [Table image](#table-image) |
 | `rateLimit` | – | `{ "maxPerHour": 6 }` — cap alerts per hour; extra ones are skipped (logged only) |
 
 Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}` — e.g. `"title": "🎯 {name}: {available} seats!"`.
@@ -148,6 +149,21 @@ Discord sends `<@USER_ID>` / `<@&ROLE_ID>` and sets `allowed_mentions` so **only
 2. User ID: right-click the user, then **Copy User ID** (mobile: long-press the user, or the ... menu, then **Copy User ID**).
 3. Role ID: **Server Settings > Roles > ... > Copy Role ID**. The role needs **Allow anyone to @mention this role** (Roles > the role > Display), otherwise the ping will not notify anyone.
 4. Put the IDs in `.env` as `QNET_MENTION_USERS` / `QNET_MENTION_ROLES` (comma-separated) or in `config.json` under `mentions`.
+
+### Table image
+
+With `tableImage` set, the current seat table (date, region, venue, exam, capacity, applied, seats left) is rendered to a PNG and attached to the webhook message. The top line is the check time in KST, e.g. **2026-11-27 14:03 KST 기준**, and rows with open seats are highlighted green.
+
+```json
+{ "tableImage": { "every": true } }
+```
+
+- `every: true` sends the image on every check; the default `false` sends it only when the table changed since the last check (the first check counts as a change).
+- Discord gets a multipart file upload (same `allowed_mentions` rules) and Telegram uses `sendPhoto`. Slack incoming webhooks cannot upload files, so Slack only gets the text alert.
+- **Renderer choice:** no new npm dependency and no Playwright. The HTML table is screenshotted with the system Chrome/Chromium/Edge in headless mode (auto-detected; override with `tableImage.chrome` or `QNET_CHROME`). If no browser is found, only the image is skipped and the error is logged; text alerts are unaffected.
+- Sample from fictional fixture data (`node scripts/make-sample-image.js`):
+
+![sample table image](docs/table-sample.png)
 
 ### Watchers
 

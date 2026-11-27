@@ -69,6 +69,17 @@
         "whileAvailable": { "type": "boolean", "default": true }
       }
     },
+    "tableImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Attach the seat-status table as a PNG (Discord webhook / Telegram). every=true sends it on every check, otherwise only when the table changes.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "every": { "type": "boolean", "default": false },
+        "chrome": { "type": "string", "description": "Path to Chrome/Chromium/Edge (or QNET_CHROME)" },
+        "width": { "type": "number", "minimum": 400, "maximum": 3000, "default": 960 }
+      }
+    },
     "templates": { "$ref": "#/definitions/template" },
     "statePath": { "type": "string" },
     "historyPath": { "type": "string" },
