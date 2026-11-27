@@ -11,7 +11,7 @@ const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
   'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
-  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost',
+  'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',

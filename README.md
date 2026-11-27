@@ -104,6 +104,7 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 | `heartbeatHours` | – | Send a "still watching" summary every N hours (first run only records a baseline) |
 | `templates` | – | `{ "title": "…", "description": "…" }` alert text; a watcher's `template` overrides it |
 | `metricsPort` / `metricsHost` | – / `127.0.0.1` | Prometheus endpoint (`/metrics`, `/healthz`) |
+| `plugins` | – | Paths of notifier plugin modules to load, see [docs/plugins.md](docs/plugins.md) |
 
 Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}` — e.g. `"title": "🎯 {name}: {available} seats!"`.
 

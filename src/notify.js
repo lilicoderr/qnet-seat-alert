@@ -2,6 +2,7 @@
 // 비밀값(웹훅 URL·봇 토큰)은 설정 파일 대신 환경변수로도 줄 수 있다.
 
 import { isWebhookUrl, sendAlert as sendDiscord } from './discord.js';
+import { getPlugin } from './plugins.js';
 
 const DEFAULT_FETCH = (...a) => globalThis.fetch(...a);
 
@@ -38,6 +39,8 @@ export function resolveNotifiers(config, watcher = {}, env = process.env) {
 }
 
 export function validateNotifier(n) {
+  const plugin = n && getPlugin(n.type);
+  if (plugin) return plugin.validate ? plugin.validate(n) || null : null;
   if (!n || !NOTIFIER_TYPES.includes(n.type)) return `알 수 없는 notifier type '${n?.type}' (${NOTIFIER_TYPES.join('/')})`;
   if (n.type === 'discord' && !isWebhookUrl(n.url)) return 'discord: 웹훅 URL 형식이 올바르지 않습니다.';
   if (n.type === 'slack' && !isSlackWebhook(n.url)) return 'slack: https://hooks.slack.com/services/... 형식이어야 합니다.';
@@ -99,6 +102,8 @@ export function buildTelegramBody(chatId, payload) {
 export async function sendTo(notifier, payload, { fetchImpl = DEFAULT_FETCH, username } = {}) {
   const err = validateNotifier(notifier);
   if (err) throw new Error(err);
+  const plugin = getPlugin(notifier.type);
+  if (plugin) return plugin.send(notifier, payload, { fetchImpl, username });
   switch (notifier.type) {
     case 'discord':
       return sendDiscord(notifier.url, payload, { fetchImpl, username });

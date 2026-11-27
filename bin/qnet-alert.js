@@ -48,6 +48,16 @@ async function main() {
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
+  if (Array.isArray(config.plugins) && config.plugins.length) {
+    const { loadPlugins } = await import('../src/plugins.js');
+    try {
+      await loadPlugins(config.plugins, { cwd: path.dirname(configPath) });
+    } catch (e) {
+      console.error(`❌ 플러그인 로드 실패: ${e.message}`);
+      process.exit(1);
+    }
+  }
+
   // 설정 검증 (dry 모드에선 웹훅 없어도 OK)
   const { validateConfig } = await import('../src/validate.js');
   const v = validateConfig(config, { requireWebhook: !args.dry });
