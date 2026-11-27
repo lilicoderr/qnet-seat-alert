@@ -203,3 +203,7 @@ systemd, Windows Task Scheduler, PM2 and Docker recipes: [docs/deploy.md](docs/d
 ## Hot reload
 
 While running, the config file is re-read automatically when it changes (checked every ≤30 s), or immediately on `SIGHUP` (`kill -HUP <pid>`, Linux/macOS). An invalid new config is rejected and the previous one keeps running, with the error printed.
+
+## Editor autocompletion
+
+A JSON Schema ships in [`schemas/config.schema.json`](schemas/config.schema.json). Add `"$schema": "./schemas/config.schema.json"` (or the raw GitHub URL) to your `config.json` for completion and inline errors in VS Code and other editors.

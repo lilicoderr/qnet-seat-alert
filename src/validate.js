@@ -11,13 +11,13 @@ const ALERT_ON = ['open', 'increase', 'change', 'available'];
 const ALERT_WHEN = ['present', 'absent', 'change'];
 
 export const TOP_KEYS = [
-  'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
+  '$schema', 'comment', 'notifiers', 'webhookUrl', 'username', 'intervalMin', 'politeDelayMs',
   'failureAlertAfter', 'statePath', 'watchers', 'heartbeatHours', 'templates', 'metricsPort', 'metricsHost', 'plugins', 'parserAlertAfter', 'digest', 'historyPath', 'quietHours', 'rateLimit',
 ];
 export const WATCHER_KEYS = [
   'name', 'id', 'url', 'linkUrl', 'type', 'alertOn', 'alertWhen', 'include', 'exclude',
   'dateFrom', 'dateTo', 'mention', 'enabled', 'needle', 'pattern', 'fields', 'method',
-  'headers', 'body', 'webhookUrl', 'template',
+  'headers', 'body', 'webhookUrl', 'template', 'flags',
 ];
 
 function checkNumber(config, key, errors, { min = 0 } = {}) {

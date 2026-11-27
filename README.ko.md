@@ -182,3 +182,7 @@ systemd, Windows 작업 스케줄러, PM2, Docker 설정은 [docs/deploy.md](doc
 ## 핫 리로드
 
 실행 중 설정 파일이 바뀌면 30초 이내에 자동으로 다시 읽고, `SIGHUP`(`kill -HUP <pid>`, Linux/macOS)을 보내면 즉시 읽습니다. 새 설정이 잘못됐으면 오류만 출력하고 이전 설정으로 계속 동작합니다.
+
+## 에디터 자동완성
+
+[`schemas/config.schema.json`](schemas/config.schema.json) JSON Schema 를 제공합니다. `config.json` 맨 위에 `"$schema": "./schemas/config.schema.json"` 을 넣으면 VS Code 등에서 자동완성과 오류 표시가 됩니다.

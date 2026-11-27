@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { validateConfig, TOP_KEYS } from '../src/validate.js';
+import { validateConfig, TOP_KEYS, WATCHER_KEYS } from '../src/validate.js';
 
 const root = new URL('..', import.meta.url);
 const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
@@ -14,7 +14,7 @@ test('config.example.json 은 검증을 통과하고 경고도 없다', () => {
 });
 
 test('README(영/한)가 모든 최상위 설정 키를 문서화한다', () => {
-  const undocumented = ['comment', 'notifiers', 'webhookUrl', 'username', 'watchers'];
+  const undocumented = ['$schema', 'comment', 'notifiers', 'webhookUrl', 'username', 'watchers'];
   for (const file of ['README.md', 'README.ko.md']) {
     const text = read(file);
     for (const key of TOP_KEYS.filter((k) => !undocumented.includes(k))) {
@@ -46,4 +46,11 @@ test('deploy 파일이 있고 비밀값이 들어 있지 않다', () => {
     assert.ok(!/discord(app)?\.com\/api\/webhooks\/\d|hooks\.slack\.com\/services\/T/.test(t), `${f} 에 웹훅 URL`);
   }
   assert.match(read('deploy/qnet-alert.service'), /ExecReload=.*HUP/);
+});
+
+test('JSON Schema 가 검증기의 키 목록과 일치하고 예제가 힌트를 가진다', () => {
+  const schema = JSON.parse(read('schemas/config.schema.json'));
+  assert.deepEqual(Object.keys(schema.properties).sort(), [...TOP_KEYS].sort());
+  assert.deepEqual(Object.keys(schema.definitions.watcher.properties).sort(), [...WATCHER_KEYS].sort());
+  assert.equal(JSON.parse(read('config.example.json')).$schema, './schemas/config.schema.json');
 });
