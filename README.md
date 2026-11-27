@@ -31,7 +31,7 @@ Verified live on 2026-11-27 with plain anonymous requests (no login, no cookies 
 | 3 | `POST rcv003.do?id=rcv00303` + `rcv00303s02` | Region list and applicant-type detail (`rcv00303s02` answers in **EUC-KR**) |
 | 4 | `POST rcv003.do?id=rcv00303s03` | Per venue: 지역, 기관명, 시험일자, 입실시간, 시험장소, 정원, 현재접수 가능인원 |
 
-Seen live: real venue rows with 정원 (e.g. 18) and 현재접수 가능인원. At that moment every row read `마감` (full), so **a numeric remaining-seat value has not been observed yet**. The parser accepts `마감` or a number and raises a "parser broke" alert for any other text instead of guessing. Not verified: 필기 exams (none were open), other 종목/regions beyond the one used. The annual schedule pages (`crf021.do`) are rendered by JavaScript and cannot be parsed.
+Seen live: real venue rows with 정원 (e.g. 18) and 현재접수 가능인원. At that moment every row read `마감` (full), so **a numeric remaining-seat value has not been observed yet**. Numeric remaining values are therefore **unverified on real data**: the tests for that path use a clearly labelled synthetic fixture (`test/fixtures/synthetic/`, derived from the real markup). The parser accepts `마감` or a number and raises a "parser broke" alert for any other text instead of guessing. Not verified: 필기 exams (none were open), other 종목/regions beyond the one used. The annual schedule pages (`crf021.do`) are rendered by JavaScript and cannot be parsed.
 
 Watcher `type: "qnet"` runs these steps each check and feeds the normal alert, mention and table-image pipeline:
 
@@ -41,7 +41,10 @@ Watcher `type: "qnet"` runs these steps each check and feeds the normal alert, m
 ```
 
 - `examPattern`: regex on the exam name (default `기능사`). `jongmok`: required, part of the 종목 name. `region`: part of the 시도 name, also sent to Q-Net as the filter. `recptCd`: applicant type, default `01` (필기합격자). `include`/`exclude`/`dateFrom`/`dateTo`: row filters. `showClosed: false`: ask only for open venues (cheaper, but the image is empty while everything is full).
-- **Cost per check:** steps 1-3 are cached for `refreshMin` (default 30) minutes, so a check is one request per result page of step 4 (10 venues per page; 2 pages nationwide for one 종목, fewer with `region`). While no matching exam is open a check is only the step-1 request and reports 0 seats. 1-minute polling is therefore about 1-3 requests per minute; set `region` to keep it small.
+- **Recommended settings:** `intervalMin: 1`, `region` set (it is also sent to Q-Net, so fewer result pages come back), `maxPages` left at the default 5 (hard cap per check), `pageDelayMs` 1500 (pause between result pages). Without `region`, `doctor` warns that a 1-minute interval costs up to `maxPages` requests per minute.
+- **Politeness:** on HTTP 429/5xx the watcher skips the next checks (2 min, then 4, 8, up to 16 min) instead of retrying at once; network errors do not re-run steps 1-3; "no matching open exam" is cached for 5 minutes (re-checked every minute once an exam's 접수 start is within 5 minutes).
+- **Real request cost per check:** with an exam open and `region` set, typically 1 request (one result page of 10 venues); nationwide for one 종목 it is 2 pages (about 2 requests, 1.5 s apart); every 30 minutes the static steps add 4 more. With no exam open: 1 request per 5 minutes.
+- **Cost per check (detail):** steps 1-3 are cached for `refreshMin` (default 30) minutes, so a check is one request per result page of step 4 (10 venues per page; 2 pages nationwide for one 종목, fewer with `region`). While no matching exam is open a check is only the step-1 request and reports 0 seats. 1-minute polling is therefore about 1-3 requests per minute; set `region` to keep it small.
 - If the exam closes or a response looks different, the cache is dropped once and retried. Unknown layouts give a parser-broken alert that names what was missing (for example the valid 종목 names).
 - Maintenance pages, HTTP 5xx and EUC-KR/UTF-8 bodies are handled.
 

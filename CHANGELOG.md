@@ -2,6 +2,12 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [SemVer](https://semver.org/lang/ko/).
 
+## [1.7.1] — 2026-11-27
+### Changed
+- qnet watcher politeness: pause between result pages (`pageDelayMs`, default 1500 ms), `maxPages` default 5, 429/5xx backoff (2 to 16 min, checks skipped), static steps re-run only on layout/stale-id errors, "no open exam" cached 5 min (rechecked every check within 5 min of an opening). `doctor`/validate warn when `region` is missing.
+### Added
+- Synthetic open-seat fixture (labelled synthetic) and tests for alert, mention and highlighted table image; README states numeric remaining values are unverified on real data and documents request cost and recommended settings.
+
 ## [1.7.0] — 2026-11-27
 ### Added
 - `type: "qnet"` watcher: read-only per-venue capacity / remaining seats from Q-Net's public lookup chain (rcv00301 -> 00302 -> 00303 -> s02 -> s03), verified live without login/cookies/CAPTCHA (9 requests). Static steps cached (`refreshMin`), only the venue table is re-polled each check. Handles no open exam, not open yet, maintenance, EUC-KR, layout changes (parser-broken alert naming the problem).
