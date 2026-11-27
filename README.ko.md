@@ -74,6 +74,7 @@ docker compose up -d --build        # .env 의 QNET_* 값을 주입
 | `--quiet` | 변화·오류가 없는 줄은 출력 생략 |
 | `--config <path>` | 설정 파일 (기본 `config.json`, 또는 `$QNET_CONFIG`) |
 | `--metrics-port <n>` | Prometheus `/metrics` 서버 열기 (또는 `metricsPort`) |
+| `qnet-alert stats [--hours 24] [--json]` | `historyPath` 이력으로 워처별 스파크라인·최소/최대/빈자리 비율 출력 |
 | `init [--force]` | 대화형 설정 마법사 (기존 파일은 `--force` 없으면 보존) |
 
 ## 설정
@@ -105,6 +106,7 @@ docker compose up -d --build        # .env 의 QNET_* 값을 주입
 | `templates` | – | `{ "title": "…", "description": "…" }` 알림 문구. 워처의 `template` 이 우선 |
 | `metricsPort` / `metricsHost` | – / `127.0.0.1` | Prometheus 엔드포인트 (`/metrics`, `/healthz`) |
 | `plugins` | – | 알림 채널 플러그인 모듈 경로 목록, [docs/plugins.md](docs/plugins.md) 참고 |
+| `historyPath` | – | 측정값을 이 JSONL 파일에 누적, `qnet-alert stats` 로 확인 |
 | `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — 이 시간대에 발생한 알림은 보류했다가 끝나면 전송 |
 | `rateLimit` | – | `{ "maxPerHour": 6 }` — 시간당 알림 상한 (초과분은 로그만 남기고 건너뜀) |
 

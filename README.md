@@ -76,6 +76,7 @@ No server? See [`scheduled-example.yml.disabled`](.github/workflows/scheduled-ex
 | `--quiet` | Hide lines with no change and no error |
 | `--config <path>` | Config file (default `config.json`, or `$QNET_CONFIG`) |
 | `--metrics-port <n>` | Serve Prometheus `/metrics` (or set `metricsPort`) |
+| `qnet-alert stats [--hours 24] [--json]` | Text sparkline + min/max/open-rate per watcher from `historyPath` |
 | `init [--force]` | Interactive setup wizard (existing files are kept unless `--force`) |
 
 ## Configuration
@@ -107,6 +108,7 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 | `templates` | – | `{ "title": "…", "description": "…" }` alert text; a watcher's `template` overrides it |
 | `metricsPort` / `metricsHost` | – / `127.0.0.1` | Prometheus endpoint (`/metrics`, `/healthz`) |
 | `plugins` | – | Paths of notifier plugin modules to load, see [docs/plugins.md](docs/plugins.md) |
+| `historyPath` | – | Append every reading to this JSONL file; view it with `qnet-alert stats` |
 | `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — alerts raised in this window are held and sent once it ends |
 | `rateLimit` | – | `{ "maxPerHour": 6 }` — cap alerts per hour; extra ones are skipped (logged only) |
 

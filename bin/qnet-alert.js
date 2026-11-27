@@ -15,6 +15,7 @@ import { MIN_INTERVAL_MIN, DISCLAIMER } from '../src/qnet.js';
 import { loadEnvFile } from '../src/env.js';
 import { createLogger } from '../src/log.js';
 import { maybeHeartbeat } from '../src/heartbeat.js';
+import { appendHistory } from '../src/history.js';
 import { createMetrics, startMetricsServer } from '../src/metrics.js';
 
 function parseArgs(argv) {
@@ -36,6 +37,11 @@ async function main() {
   if (process.argv[2] === 'init') {
     const { runInit } = await import('../src/init.js');
     await runInit({ force: process.argv.includes('--force') });
+    return;
+  }
+  if (process.argv[2] === 'stats') {
+    const { runStats } = await import('../src/stats-cmd.js');
+    await runStats(process.argv.slice(3));
     return;
   }
   loadEnvFile(process.env.QNET_ENV || '.env');
@@ -125,6 +131,7 @@ async function main() {
     try {
       const results = await runOnce(config, { store, logger, dry: args.dry });
       metrics.record(results);
+      if (config.historyPath && !args.dry) appendHistory(config.historyPath, results);
       if (!args.dry) {
         const hb = await maybeHeartbeat(config, { store, results, startedAt });
         if (hb === 'sent') logger.info('💓 하트비트 전송');
