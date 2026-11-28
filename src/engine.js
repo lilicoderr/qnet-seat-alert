@@ -7,7 +7,7 @@ import { filterRows } from './filter.js';
 import { formatLine } from './log.js';
 import { notifyAll, resolveNotifiers } from './notify.js';
 import { renderTemplate, varsFor } from './template.js';
-import { buildParserBrokenPayload } from './parser-alert.js';
+import { sendWarnings } from './warn.js';
 import { langOf, t, usernameOf } from './i18n.js';
 import { buildDigestPayload } from './digest.js';
 import { inQuietHours, takeRateSlot } from './throttle.js';
@@ -178,28 +178,7 @@ export async function runOnce(config, { store, fetchImpl = DEFAULT_FETCH, log = 
         r.alertError = '알림 채널 없음';
       }
     }
-    // 연속 실패가 임계치에 닿으면 한 번만 "감시 이상" 알림
-    const limit = config.failureAlertAfter ?? 5;
-    if (!r.ok && limit > 0 && r.failures === limit) {
-      const notifiers = resolveNotifiers(config, watcher);
-      if (notifiers.length) {
-        const { delivered } = await notifyAll(notifiers, {
-          title: t(langOf(config), 'fail.title', { name: watcher.name || 'Q-Net' }),
-          description: t(langOf(config), 'fail.desc', { n: r.failures, err: r.error }),
-          url: watcher.linkUrl || watcher.url,
-          color: 0xe03131,
-        }, { fetchImpl, username: usernameOf(config) });
-        r.alerted = delivered > 0;
-      }
-    }
-    const plimit = config.parserAlertAfter ?? 3;
-    if (r.ok && plimit > 0 && r.nullStreak === plimit) {
-      const notifiers = resolveNotifiers(config, watcher);
-      if (notifiers.length) {
-        const { delivered } = await notifyAll(notifiers, buildParserBrokenPayload(watcher, r, langOf(config)), { fetchImpl, username: usernameOf(config) });
-        r.alerted = delivered > 0;
-      }
-    }
+    await sendWarnings(config, { store, watcher, r, quiet, now, fetchImpl });
     // 알림이 없는 체크: 이미지 전용 메시지(멘션 없음). 조용한 시간엔 아무것도 보내지 않고, 빈도 제한을 따른다.
     // 알림이 있었으나 게이트에 막혔다면(빈도 제한 등) 이미지도 보내지 않는다.
     if (imageOn && !quiet && (!wanted || toDigest)) {

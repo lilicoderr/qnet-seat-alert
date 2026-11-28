@@ -140,6 +140,10 @@ for (const seed of [1, 7, 2026]) {
     const MODES = ['maintenance', '429', '500', 'layout', 'venuelayout', 'network'];
     let last = null; // 마지막으로 "처리를 마친" 좌석 수
     let expected = 0;
+    // 경고: 장애 한 번에, 임계치를 넘긴 뒤 Discord 가 살아 있는 첫 체크에 한 통
+    const warned = { fail: false, parser: false };
+    const warnings = { fail: 0, parser: 0 };
+    const due = (kind, over) => { if (over && !warned[kind] && !s.server.discordDown) { warned[kind] = true; warnings[kind]++; } };
     for (let i = 0; i < 1000; i++) {
       if (rand() < 0.08) s.server.seats = rand() < 0.5 ? 0 : 1 + Math.floor(rand() * 9);
       if (rand() < 0.04) s.server.mode = MODES[Math.floor(rand() * MODES.length)];
@@ -154,12 +158,59 @@ for (const seed of [1, 7, 2026]) {
         if (!opened || !s.server.discordDown) last = r.signal;
       }
       assert.equal(s.count(SEAT), expected, `cycle ${i} (${s.server.mode})`);
+      if (r.ok) warned.fail = false;
+      if (r.ok && !r.nullStreak) warned.parser = false;
+      due('fail', !r.ok && r.failures >= 5);
+      due('parser', r.ok && r.nullStreak >= 3);
+      assert.deepEqual({ fail: s.count(FAIL), parser: s.count(PARSER) }, warnings, `cycle ${i} (${s.server.mode})`);
     }
     assert.ok(expected > 5);
+    assert.ok(warnings.fail > 0 && warnings.parser > 0);
     assert.ok(qnetCacheSize() <= 3);
     assert.ok(s.stateBytes() < 2000);
   });
 }
+
+for (const [name, mode, re] of [['감시 오류', 'maintenance', FAIL], ['파서 오류', 'layout', PARSER]]) {
+  test(`soak: ${name} 경고는 전달될 때까지 재시도, 장애마다 정확히 한 통 (재시작 포함)`, async (t) => {
+    const s = soak();
+    t.after(s.cleanup);
+    await s.run(20, { mode, discordDown: true }); assert.equal(s.count(re), 0);
+    s.restart();
+    await s.run(1, { discordDown: false }); assert.equal(s.count(re), 1);
+    s.restart(); await s.run(60); assert.equal(s.count(re), 1);
+    // 전달 못 한 채 복구되면 낡은 경고는 보내지 않는다
+    await s.run(20, { mode: 'ok' });
+    await s.run(20, { mode, discordDown: true });
+    await s.run(20, { mode: 'ok' });
+    await s.run(10, { discordDown: false }); assert.equal(s.count(re), 1);
+    await s.run(30, { mode }); assert.equal(s.count(re), 2);
+    assert.equal(s.posts.length, 2);
+  });
+
+  test(`soak: ${name} 경고는 조용한 시간 뒤에 한 통, 그 전에 복구되면 없음`, async (t) => {
+    const s = soak({ start: kst('2026-11-27T23:30:00'), config: { quietHours: QUIET } });
+    t.after(s.cleanup);
+    await s.run(60, { mode }); await s.run(30, { mode: 'ok' }); // 00:30 장애 끝
+    await s.run(480); assert.equal(s.posts.length, 0); // 09:00
+    s.clock.t = kst('2026-11-29T02:00:00');
+    await s.run(299, { mode }); assert.equal(s.posts.length, 0);
+    await s.run(1, { discordDown: true }); await s.run(3); assert.equal(s.posts.length, 0);
+    await s.run(60, { discordDown: false });
+    assert.equal(s.count(re), 1);
+    assert.match(formatKst(s.posts[0].at), /07:03$/);
+  });
+}
+
+test('soak: 경고의 빈도 제한은 좌석 알림과 따로, 전달된 것만 센다', async (t) => {
+  const s = soak({ config: { rateLimit: { maxPerHour: 1 } } });
+  t.after(s.cleanup);
+  await s.run(30, { mode: 'maintenance', discordDown: true });
+  await s.run(1, { discordDown: false }); assert.equal(s.count(FAIL), 1); // 실패한 시도는 몫을 쓰지 않는다
+  await s.run(5, { mode: 'ok', seats: 2 }); assert.equal(s.count(SEAT), 1);
+  await s.run(20, { mode: 'maintenance' }); assert.equal(s.count(FAIL), 1); // 상한: 보류
+  await s.run(40); assert.equal(s.count(FAIL), 2); // 한 시간 뒤에도 장애 중이면 전달
+});
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 

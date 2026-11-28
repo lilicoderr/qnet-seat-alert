@@ -218,21 +218,21 @@ node bin/qnet-alert.js doctor --fixture test/fixtures/real/rcv00301-2026-11-27.h
 |---|---|---|
 | `intervalMin` | `5` | 폴링 간격(분), 최소 1 (60초) |
 | `politeDelayMs` | – | 워처 사이 대기(ms) |
-| `failureAlertAfter` | `5` | 연속 실패 N회에 "감시 오류" 알림 1회 (`0` 이면 끔) |
+| `failureAlertAfter` | `5` | 연속 실패 N회에 "감시 오류" 알림 1회 (`0` 이면 끔). 전달될 때까지 다음 체크에 다시 시도하고, 보내기 전에 복구되면 취소 |
 | `statePath` | `state.json` | 마지막 신호 저장 파일 (`$QNET_STATE`) |
 | `heartbeatHours` | – | N시간마다 "감시 중" 요약 알림 (첫 실행엔 기준만 기록) |
 | `templates` | – | `{ "title": "…", "description": "…" }` 알림 문구. 워처의 `template` 이 우선 |
 | `metricsPort` / `metricsHost` | – / `127.0.0.1` | Prometheus 엔드포인트 (`/metrics`, `/healthz`) |
 | `plugins` | – | 알림 채널 플러그인 모듈 경로 목록, [docs/plugins.md](docs/plugins.md) 참고 |
 | `lang` | `ko` | 기본 알림 문구 언어: `ko` 또는 `en` (직접 쓴 `templates` 가 항상 우선) |
-| `parserAlertAfter` | `3` | 페이지는 받아지는데 값을 N회 연속 못 읽으면 "파서 오류" 알림을 한 번 전송 (`0` 이면 끔) |
+| `parserAlertAfter` | `3` | 페이지는 받아지는데 값을 N회 연속 못 읽으면 "파서 오류" 알림을 한 번 전송 (`0` 이면 끔). 전달될 때까지 다음 체크에 다시 시도하고, 보내기 전에 복구되면 취소 |
 | `digest` | `false` | `true` 면 같은 점검에서 발생한 알림을 한 통으로 묶음 |
 | `historyPath` | – | 측정값을 이 JSONL 파일에 누적, `qnet-alert stats` 로 확인 |
-| `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — 이 시간대에 발생한 알림은 보류했다가 끝나면 전송 |
+| `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — 이 시간대에 발생한 알림은 보류했다가 끝나면 전송. 감시·파서 오류 경고도 미루며, 끝난 뒤에도 장애 중일 때만 전송 |
 | `jitter` | `0.1` | 매 대기 시간을 `intervalMin` 의 ±이 비율만큼 무작위로 흔듦 (0~0.5) |
 | `mentions` | – | `{ "users": [...], "roles": [...], "slack": [...], "cooldownMin": 0, "whileAvailable": true }` — 빈자리가 보이는 동안 멘션 ([멘션](#멘션) 참고) |
 | `tableImage` | – | `{ "every": false, "chrome": "", "width": 960 }` — 현황표를 PNG 로 첨부 ([현황표 이미지](#현황표-이미지) 참고) |
-| `rateLimit` | – | `{ "maxPerHour": 6 }` — 시간당 알림 상한 (초과분은 로그만 남기고 건너뜀) |
+| `rateLimit` | – | `{ "maxPerHour": 6 }` — 시간당 알림 상한 (초과분은 로그만 남기고 건너뜀). 감시·파서 오류 경고는 따로 세고(전달된 것만), 상한이면 장애가 이어지는 동안 다음 여유 때 전송 |
 
 템플릿 변수: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}`
 예) `"title": "🎯 {name} {available}석!"`

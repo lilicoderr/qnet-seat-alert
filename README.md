@@ -165,21 +165,21 @@ Set via environment variables (recommended) or `notifiers` in `config.json`.
 |---|---|---|
 | `intervalMin` | `5` | Polling interval in minutes (minimum 1, i.e. 60 s; fractions like 1.5 work) |
 | `politeDelayMs` | – | Pause between watchers (ms) |
-| `failureAlertAfter` | `5` | Send one "watcher failing" alert after N consecutive failures (`0` disables) |
+| `failureAlertAfter` | `5` | Send one "watcher failing" alert after N consecutive failures (`0` disables). Retried until delivered; cancelled if monitoring recovers first |
 | `statePath` | `state.json` | File holding the last signal (`$QNET_STATE`) |
 | `heartbeatHours` | – | Send a "still watching" summary every N hours (first run only records a baseline) |
 | `templates` | – | `{ "title": "…", "description": "…" }` alert text; a watcher's `template` overrides it |
 | `metricsPort` / `metricsHost` | – / `127.0.0.1` | Prometheus endpoint (`/metrics`, `/healthz`) |
 | `plugins` | – | Paths of notifier plugin modules to load, see [docs/plugins.md](docs/plugins.md) |
 | `lang` | `ko` | Language of built-in alert messages: `ko` or `en` (your own `templates` always win) |
-| `parserAlertAfter` | `3` | Send one "parser broke" alert after N consecutive checks where the page loads but no value can be read (`0` disables) |
+| `parserAlertAfter` | `3` | Send one "parser broke" alert after N consecutive checks where the page loads but no value can be read (`0` disables). Retried until delivered; cancelled if monitoring recovers first |
 | `digest` | `false` | `true` merges alerts raised in the same check into one message |
 | `historyPath` | – | Append every reading to this JSONL file; view it with `qnet-alert stats` |
-| `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — alerts raised in this window are held and sent once it ends |
+| `quietHours` | – | `{ "start": "23:00", "end": "07:00", "timezone": "Asia/Seoul" }` — alerts raised in this window are held and sent once it ends. The two failure warnings are also deferred, and sent only if still broken then |
 | `jitter` | `0.1` | Randomize each wait by ±this fraction of `intervalMin` (0–0.5) so requests don't land on a fixed beat; see [Polite polling](#polite-polling) |
 | `mentions` | – | `{ "users": [...], "roles": [...], "slack": [...], "cooldownMin": 0, "whileAvailable": true }` — ping people while seats are open, see [Mentions](#mentions) |
 | `tableImage` | – | `{ "every": false, "chrome": "", "width": 960 }` — attach the seat table as a PNG, see [Table image](#table-image) |
-| `rateLimit` | – | `{ "maxPerHour": 6 }` — cap alerts per hour; extra ones are skipped (logged only) |
+| `rateLimit` | – | `{ "maxPerHour": 6 }` — cap alerts per hour; extra ones are skipped (logged only). Failure warnings are counted separately (delivered ones only) and wait for the next free slot while the outage lasts |
 
 Template variables: `{name}` `{available}` `{applied}` `{capacity}` `{signal}` `{reason}` `{url}` `{time}` — e.g. `"title": "🎯 {name}: {available} seats!"`.
 

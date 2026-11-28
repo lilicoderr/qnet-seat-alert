@@ -28,12 +28,20 @@ export function inQuietHours(cfg, now = new Date()) {
 
 const RATE_KEY = '__rate';
 
+const recent = (store, key, nowMs) => (store.get(key)?.sent || []).filter((t) => nowMs - t < 3600 * 1000);
+
+// 기록하지 않고 여유만 확인한다 (전달에 성공한 것만 셀 때).
+export function hasRateSlot(config, store, nowMs, key = RATE_KEY) {
+  const max = Number(config.rateLimit?.maxPerHour) || 0;
+  return max <= 0 || !store || recent(store, key, nowMs).length < max;
+}
+
 // 보낼 수 있으면 true 로 기록까지 한다.
 // key: 이미지 전용 메시지는 따로 센다 (상태판이 좌석 알림의 몫을 다 써버리지 않도록).
 export function takeRateSlot(config, store, nowMs = Date.now(), key = RATE_KEY) {
   const max = Number(config.rateLimit?.maxPerHour) || 0;
   if (max <= 0 || !store) return true;
-  const sent = (store.get(key)?.sent || []).filter((t) => nowMs - t < 3600 * 1000);
+  const sent = recent(store, key, nowMs);
   if (sent.length >= max) {
     store.set(key, { sent });
     return false;
