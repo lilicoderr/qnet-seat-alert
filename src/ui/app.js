@@ -40,6 +40,7 @@ export function createUiApp({ configFile, envFile, cwd = path.dirname(configFile
       cost: requestCost(Math.min(1440, intervalMin), { region: selection?.region, others }),
       watch: watch.status(),
       disclaimer: DISCLAIMER,
+      sample: env.QNET_UI_SAMPLE === '1', // 문서용 스크린샷 표시 (가짜 fixture 데이터임을 화면에 밝힌다)
     };
   }
 

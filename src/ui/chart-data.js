@@ -45,8 +45,11 @@ export function venueSeries(entries, ids, { hours = 24, now = Date.now(), maxVen
     if (!watchers.has(e.id)) watchers.set(e.id, { id: e.id, name: e.name || e.id, venues: new Map() });
     const w = watchers.get(e.id);
     w.name = e.name || w.name;
+    const seen = new Set(); // 같은 확인에서 이름이 겹치는 행은 한 번만
     for (const [region, place, date, capacity, open] of e.venues) {
       const key = `${region}|${place}|${date}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       if (!w.venues.has(key)) w.venues.set(key, { region, place, date, capacity, last: 0, lastAt: 0, points: [] });
       const v = w.venues.get(key);
       v.points.push([e.t, Number(open) || 0]);

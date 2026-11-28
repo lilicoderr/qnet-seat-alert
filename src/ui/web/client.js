@@ -70,6 +70,7 @@ function showView(v) {
   $('current').textContent = s ? `저장된 감시: ${s.name} · 종목 ${s.jongmok} · 지역 ${s.region || '전국'} · ${v.intervalMin}분마다` : '저장된 선택이 없습니다.';
   $('interval').value = v.intervalMin > 1 || s ? v.intervalMin : 3;
   $('disclaimer').textContent = v.disclaimer;
+  $('sample').hidden = !v.sample;
   showSecrets(v.secrets);
 }
 

@@ -63,3 +63,16 @@ test('docker 워크플로: 태그에서만, GITHUB_TOKEN 외 비밀값 없음, �
   const secrets = [...y.matchAll(/secrets\.(\w+)/g)].map((m) => m[1]);
   assert.deepEqual([...new Set(secrets)], ['GITHUB_TOKEN']);
 });
+
+test('웹 UI: README(영/한)가 명령/보안/샘플 스크린샷을 설명하고 이미지 파일이 있다', () => {
+  for (const [file, re] of [['README.md', /sample data|not live/i], ['README.ko.md', /샘플 데이터/]]) {
+    const t = read(file);
+    assert.match(t, /node bin\/qnet-alert\.js ui/, file);
+    assert.match(t, /docs\/ui-setup\.png/, file);
+    assert.match(t, re, file);
+    assert.match(t, /127\.0\.0\.1/, file);
+  }
+  for (const f of ['docs/ui-setup.png', 'docs/ui-mobile.png']) assert.ok(fs.statSync(new URL(f, root)).size > 20000, f);
+  assert.equal(JSON.parse(read('package.json')).version, '1.9.0');
+  assert.match(read('src/polite.js'), /VERSION = '1\.9\.0'/);
+});

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-11-28
+### Added
+- `qnet-alert ui`: Korean web app (127.0.0.1 only) to pick the open exam / 종목 / region from lists read through the public read-only chain (user-triggered, cached, polite), set the interval with the request cost shown, save the Discord webhook and mention user IDs to `.env` only (never echoed), send a test alert, start/stop watching, see last/next check in KST and per-venue seat history charts. Per-session token, Host/Origin checks, CSP, no secrets in responses/logs.
+- `qnet` readings now store per-venue rows in the history JSONL.
+- Sample screenshots (fixture data) in docs.
+
 ## [1.8.0] — 2026-11-28
 ### Added
 - Windows 첫 실행: README 5분 빠른 시작, `start-watch.bat`, `test` 알림에 설정한 멘션 포함.

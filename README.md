@@ -105,6 +105,28 @@ Table images from the real fixtures (`scripts/make-real-sample-image.js`, `scrip
 
 ![real seat table](docs/table-sample-seats.png)
 
+## Web UI (`qnet-alert ui`)
+
+A Korean-first page to set everything up without editing files. Needs only Node 20+; no install.
+
+```powershell
+node bin/qnet-alert.js ui
+```
+
+Open the printed address (it ends in `#t=...`, a key valid for this run only; do not share it). Steps on the page:
+
+1. **Pick the exam:** the button loads the currently open exams, then the 종목 and the region from Q-Net's public read-only lookup (the same steps as the `qnet` watcher, never anything under login/registration). Requests happen **only when you press the button**, are cached for 10 minutes, are spaced 1.5 s apart and pause for a while after an error.
+2. **Interval** (1 minute or more) with the estimated Q-Net requests per check, hour and day shown before you save.
+3. **Discord webhook and mention user IDs** are written to `.env` only. They are never shown again, never put in `config.json`, responses or logs; the page only shows "saved" and a count. **Send test alert** posts to the saved webhook (with the mention).
+4. **Start/stop watching** (same engine as the CLI, runs while this window is open): a live table with the last check and next check in KST and the venue rows seen. Do not run it together with `start-watch.bat` (double alerts).
+5. **Seat history** per venue as small step charts from the `historyPath` JSONL (the UI sets `history.jsonl`; `qnet` readings now also store the per-venue rows). Each chart has a table view.
+
+Security: binds to `127.0.0.1` only; every request must carry a random per-run token (`X-QNet-Token`, taken from the URL fragment, which is never sent to the server); `Host` must be the loopback name and port (DNS rebinding), `Origin` must match and the body must be JSON (CSRF); strict CSP, no CORS, request body limit, a fixed list of served files (no path traversal), secrets are scrubbed from errors and logs. Tests use fixtures only and never contact q-net.or.kr.
+
+![web UI, sample data](docs/ui-setup.png)
+
+*Screenshot: fixture and generated sample data, not live Q-Net results.* Narrow screens: [docs/ui-mobile.png](docs/ui-mobile.png). Regenerate with `node scripts/make-ui-screenshots.js`.
+
 ## Features
 
 - **Zero dependencies** — Node 20+ built-in `fetch` only
@@ -129,6 +151,7 @@ Run as `node bin/qnet-alert.js <command/option>`. With none, it keeps watching e
 | `doctor [--offline] [--fixture f]` | Check config, `.env`, channels, mentions and reachability (sends nothing) |
 | `test [--channel discord] [--dry]` | Send a test alert, including configured mentions, to the chosen channel |
 | `export [--hours N] [--out f.csv]` | Export `historyPath` readings as CSV |
+| `ui [--port 8788]` | Korean web app for setup, start/stop and charts (127.0.0.1 only), see [Web UI](#web-ui-qnet-alert-ui) |
 | `dashboard [--port 8787]` | Read-only local dashboard (127.0.0.1) |
 | `init --preset gineungsa --jongmok <name> --region <area>` | Non-interactive 기능사 setup |
 | `--once` | Check once and exit |

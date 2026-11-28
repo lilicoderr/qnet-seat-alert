@@ -158,6 +158,28 @@ node bin/qnet-alert.js doctor --fixture test/fixtures/real/rcv00301-2026-11-27.h
 
 ![실제 잔여석 표](docs/table-sample-seats.png)
 
+## 웹 화면 (`qnet-alert ui`)
+
+파일을 직접 고치지 않고 한국어 화면에서 설정합니다. Node 20+ 만 있으면 됩니다.
+
+```powershell
+node bin/qnet-alert.js ui
+```
+
+출력된 주소(끝이 `#t=...`)를 브라우저에 붙여 넣으세요. `#t=` 뒤는 이번 실행에만 쓰는 열쇠이니 공유하지 마세요.
+
+1. **시험 고르기:** 버튼을 누르면 접수 중인 시험, 종목, 지역 목록을 Q-Net 의 공개 읽기 전용 조회로 불러옵니다 (`qnet` 워처와 같은 단계이며 로그인/접수 쪽은 건드리지 않습니다). 요청은 **버튼을 누를 때만** 보내고, 10분 저장해 다시 쓰며, 요청 사이 1.5초를 두고, 오류 뒤에는 한동안 쉽니다.
+2. **확인 간격**(1분 이상): 저장 전에 확인 1회/1시간/하루의 예상 Q-Net 요청 수를 보여 줍니다.
+3. **Discord 웹훅과 멘션 사용자 ID** 는 `.env` 에만 씁니다. 화면에 다시 보여 주지 않고 `config.json`, 응답, 로그에도 넣지 않습니다("저장됨"과 개수만 표시). **테스트 알림 보내기** 는 저장된 웹훅으로 (멘션 포함) 보냅니다.
+4. **감시 시작/중지**: CLI 와 같은 엔진이며 이 창이 열려 있는 동안 동작합니다. 마지막 확인/다음 확인(KST)과 시험장 표가 실시간으로 보입니다. `start-watch.bat` 와 동시에 켜면 알림이 두 번 옵니다.
+5. **시험장별 잔여석 기록**: `historyPath` JSONL 로 시험장마다 작은 계단 그래프를 그립니다(화면이 `history.jsonl` 을 설정하고, `qnet` 측정은 이제 시험장별 값도 기록합니다). 그래프마다 표로 보기가 있습니다.
+
+보안: `127.0.0.1` 에만 바인딩. 모든 요청에 실행마다 새로 만든 무작위 열쇠(`X-QNet-Token`, 서버로 전송되지 않는 주소 조각에서 읽음)가 필요하고, `Host` 는 루프백 이름·포트여야 하며(DNS rebinding 방어) `Origin` 일치와 JSON 본문이 필요합니다(CSRF 방어). 엄격한 CSP, CORS 없음, 본문 크기 제한, 고정된 파일 목록만 제공(경로 조작 불가), 오류/로그에서 비밀값 제거. 테스트는 fixture 만 쓰며 q-net.or.kr 에 접속하지 않습니다.
+
+![웹 화면, 샘플 데이터](docs/ui-setup.png)
+
+*스크린샷: fixture 와 생성한 샘플 데이터이며 실제 Q-Net 결과가 아닙니다.* 좁은 화면: [docs/ui-mobile.png](docs/ui-mobile.png). 다시 만들기: `node scripts/make-ui-screenshots.js`.
+
 ## 특징
 
 - **의존성 0** — Node 20+ 내장 `fetch` 만 사용
@@ -182,6 +204,7 @@ node bin/qnet-alert.js doctor --fixture test/fixtures/real/rcv00301-2026-11-27.h
 | `doctor [--offline] [--fixture f]` | 설정, `.env`, 채널, 멘션, 접속 점검 (전송 없음) |
 | `test [--channel discord] [--dry]` | 선택한 채널에만 테스트 알림 (설정한 멘션 포함) |
 | `export [--hours N] [--out f.csv]` | `historyPath` 이력을 CSV 로 내보내기 |
+| `ui [--port 8788]` | 설정·시작/중지·그래프를 한 화면에서 (127.0.0.1 전용), [웹 화면](#웹-화면-qnet-alert-ui) 참고 |
 | `dashboard [--port 8787]` | 읽기 전용 로컬 대시보드 (127.0.0.1) |
 | `init --preset gineungsa --jongmok <종목> --region <지역>` | 질문 없이 기능사 감시 설정 생성 |
 | `--once` | 1회 검사 후 종료 |

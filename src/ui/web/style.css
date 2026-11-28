@@ -45,3 +45,4 @@ svg.chart text{fill:var(--muted);font-size:11px}
 .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--card);border-radius:6px;padding:3px 8px;font-size:12px;white-space:nowrap;top:4px}
 [hidden]{display:none !important}
 @media (max-width:520px){section{padding:12px}body{padding:16px 16px}}
+.banner.sample{border-color:var(--series);color:var(--ink);background:var(--card)}
