@@ -35,9 +35,13 @@ export function fakeNet(venue = real('rcv00303s03-closed.html')) {
 export async function startUi(net = fakeNet(), extra = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qsa-ui-'));
   const clock = { now: NOW };
-  const env = { ...(extra.env || {}) };
+  // 감시 엔진은 process.env 에서 채널을 읽는다: 테스트가 끝나면 원래대로 되돌린다
+  const keys = ['QNET_DISCORD_WEBHOOK', 'QNET_MENTION_USERS'];
+  const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+  for (const k of keys) delete process.env[k];
+  const env = process.env;
   const app = createUiApp({
-    configFile: path.join(dir, 'config.json'), envFile: path.join(dir, '.env'), cwd: dir, env, fetchImpl: net.fetchImpl,
+    configFile: path.join(dir, 'config.json'), envFile: path.join(dir, '.env'), cwd: dir, env, fetchImpl: (...a) => net.fetchImpl(...a),
     now: () => clock.now, sleep: async () => {}, runDeps: { sleepImpl: async () => {} }, setTimer: () => 0, ...extra.app,
   });
   await listenUi(app.server, 0);
@@ -53,6 +57,6 @@ export async function startUi(net = fakeNet(), extra = {}) {
     r.on('error', reject);
     r.end(data);
   });
-  const close = () => { app.server.close(); fs.rmSync(dir, { recursive: true, force: true }); };
+  const close = () => { for (const k of keys) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } app.server.close(); fs.rmSync(dir, { recursive: true, force: true }); };
   return { ...app, dir, env, clock, call, close, port, file: (n) => path.join(dir, n) };
 }
