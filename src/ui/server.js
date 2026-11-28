@@ -10,7 +10,7 @@ function send(res, status, type, body) {
   res.end(body);
 }
 
-// routes: { 'GET /api/x': async () => data, 'POST /api/y': async (body) => data }
+// routes: { 'GET /api/x': async (searchParams) => data, 'POST /api/y': async (body) => data }
 // assets: { '/': { type, body } }
 export function createUiServer({ routes = {}, assets = {}, token = newToken(), log = () => {}, scrub = (s) => s } = {}) {
   const server = http.createServer(async (req, res) => {
@@ -25,8 +25,8 @@ export function createUiServer({ routes = {}, assets = {}, token = newToken(), l
       }
       const key = `${req.method} ${pathname}`;
       if (!Object.hasOwn(routes, key)) throw new HttpError(404, 'not_found');
-      const body = req.method === 'POST' ? await readJsonBody(req) : undefined;
-      const data = await routes[key](body);
+      const input = req.method === 'POST' ? await readJsonBody(req) : new URL(req.url, 'http://127.0.0.1').searchParams;
+      const data = await routes[key](input);
       return send(res, 200, JSON_TYPE, JSON.stringify(data ?? {}));
     } catch (e) {
       const known = e instanceof HttpError;

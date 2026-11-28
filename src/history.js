@@ -2,11 +2,18 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { qnetVenues } from './extract.js';
+
+// qnet 워처는 시험장별 잔여도 남긴다 (웹 UI 의 시험장별 그래프). [지역, 시험장, 시험일자, 정원, 잔여]
+function venuesOf(r) {
+  if (r.detail?.source !== 'qnet' || !r.rawText) return {};
+  return { venues: qnetVenues(r.rawText).map((v) => [v.region, v.place, v.date, v.capacity, v.open]) };
+}
 
 export function appendHistory(file, results, now = Date.now()) {
   const lines = results
     .filter((r) => r.ok)
-    .map((r) => JSON.stringify({ t: now, id: r.id, name: r.name, available: r.available ?? null, signal: r.signal ?? null }));
+    .map((r) => JSON.stringify({ t: now, id: r.id, name: r.name, available: r.available ?? null, signal: r.signal ?? null, ...venuesOf(r) }));
   if (!lines.length) return 0;
   fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
   fs.appendFileSync(file, lines.join('\n') + '\n', 'utf8');

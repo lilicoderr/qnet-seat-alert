@@ -52,6 +52,7 @@ async function main() {
   // 하위 명령: 이름 -> [모듈, 함수]. 숫자를 돌려주면 종료 코드로 쓴다.
   const SUBCOMMANDS = {
     dashboard: ['../src/dashboard-cmd.js', 'runDashboard'],
+    ui: ['../src/ui-cmd.js', 'runUi'],
     doctor: ['../src/doctor-cmd.js', 'runDoctor'],
     test: ['../src/test-cmd.js', 'runTest'],
     export: ['../src/export-cmd.js', 'runExport'],

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Q-Net 빈자리 알림</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<header>
+  <h1>Q-Net 빈자리 알림</h1>
+  <p class="muted"><strong>알림 전용입니다.</strong> 로그인·접수·결제는 하지 않습니다. 접수는 직접 하세요. 이 화면은 이 PC 에서만 열립니다.</p>
+  <p id="disclaimer" class="muted small"></p>
+</header>
+<p id="banner" class="banner" role="alert" hidden></p>
+<main>
+<section aria-labelledby="h1">
+  <h2 id="h1">1. 감시할 시험 고르기</h2>
+  <p id="current" class="muted">저장된 선택이 없습니다.</p>
+  <p><button type="button" id="load-exams">접수 중인 시험 불러오기</button> <span class="muted small">누를 때만 Q-Net 공개 페이지를 읽습니다 (10분 동안 저장해 다시 씀).</span></p>
+  <div class="fields">
+    <label>접수 중인 시험 <select id="exam" disabled><option value="">먼저 위 버튼을 누르세요</option></select></label>
+    <label>종목 <select id="jongmok" disabled><option value="">시험을 먼저 고르세요</option></select></label>
+    <label>지역 <select id="region" disabled><option value="">종목을 먼저 고르세요</option></select></label>
+  </div>
+  <p id="options-msg" class="msg" aria-live="polite"></p>
+</section>
+<section aria-labelledby="h2">
+  <h2 id="h2">2. 확인 간격</h2>
+  <label>몇 분마다 확인할까요? (1분 이상) <input type="number" id="interval" min="1" max="1440" step="1" value="3" inputmode="decimal"></label>
+  <p id="cost" class="cost" aria-live="polite"></p>
+  <p class="muted small">평소에는 3~10분을 권장합니다. 1분은 접수가 열려 있는 짧은 시간에만 쓰세요.</p>
+  <p><button type="button" id="save-settings" class="primary">설정 저장</button></p>
+  <p id="settings-msg" class="msg" aria-live="polite"></p>
+</section>
+<section aria-labelledby="h3">
+  <h2 id="h3">3. Discord 알림</h2>
+  <p>저장 상태: <span id="webhook-state" class="badge">확인 중</span> <span id="mention-state" class="badge">확인 중</span></p>
+  <div class="fields">
+    <label>웹훅 URL <input type="password" id="webhook" autocomplete="off" spellcheck="false" placeholder="https://discord.com/api/webhooks/..."></label>
+    <label>멘션할 사용자 ID (선택, 쉼표 구분) <input type="password" id="mentions" autocomplete="off" spellcheck="false" placeholder="숫자 ID, 닉네임 아님"></label>
+  </div>
+  <p class="muted small">이 PC 의 <code>.env</code> 파일에만 저장하며 화면에 다시 보여 주지 않습니다. 빈칸은 기존 값을 그대로 둡니다. 웹훅 URL 은 비밀번호처럼 다루세요.<br>웹훅: 채널 설정 &gt; 연동 &gt; 웹후크. 사용자 ID: 개발자 모드를 켠 뒤 이름을 우클릭 &gt; 사용자 ID 복사.</p>
+  <p><button type="button" id="save-secrets" class="primary">알림 정보 저장</button> <button type="button" id="test-alert">테스트 알림 보내기</button> <button type="button" id="clear-webhook">웹훅 지우기</button> <button type="button" id="clear-mentions">멘션 지우기</button></p>
+  <p id="secrets-msg" class="msg" aria-live="polite"></p>
+</section>
+<section aria-labelledby="h4">
+  <h2 id="h4">4. 감시</h2>
+  <p><button type="button" id="start" class="primary">감시 시작</button> <button type="button" id="stop">감시 중지</button> <span id="run-state" class="badge">중지됨</span></p>
+  <dl class="times"><div><dt>마지막 확인</dt><dd id="last-check">-</dd></div><div><dt>다음 확인</dt><dd id="next-check">-</dd></div></dl>
+  <p id="watch-msg" class="msg" aria-live="polite"></p>
+  <div class="scroll"><table><thead><tr><th>감시 항목</th><th>상태</th><th>잔여석</th><th>비고</th></tr></thead><tbody id="status-rows"></tbody></table></div>
+  <div id="venue-now"></div>
+  <p class="muted small">감시는 이 프로그램을 켜 둔 동안만 동작합니다. <code>start-watch.bat</code> 와 동시에 켜면 알림이 두 번 옵니다.</p>
+</section>
+<section aria-labelledby="h5">
+  <h2 id="h5">5. 시험장별 잔여석 기록</h2>
+  <p><label class="inline">기간 <select id="hours"><option value="6">최근 6시간</option><option value="24" selected>최근 24시간</option><option value="72">최근 3일</option><option value="168">최근 7일</option></select></label></p>
+  <div id="charts"></div>
+</section>
+</main>
+</body>
+</html>

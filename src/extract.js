@@ -93,6 +93,16 @@ function pick(obj, keys) {
   return null;
 }
 
+// fetchQnetSeats 가 만든 표의 행: [지역, 시험장, 시험일자, 정원, 잔여] (HTML 이스케이프된 상태)
+export const qnetTableRows = (text) => [...String(text).matchAll(/<tr>((?:<td>[\s\S]*?<\/td>)+)<\/tr>/g)].map((m) => [...m[1].matchAll(/<td>([\s\S]*?)<\/td>/g)].map((c) => c[1]));
+
+const ENTITY = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+const unesc = (s) => String(s).replace(/&(?:amp|lt|gt|quot|#39);/g, (m) => ENTITY[m]);
+
+export const qnetVenues = (text) => qnetTableRows(text).map(([region, place, date, capacity, open]) => ({
+  region: unesc(region), place: unesc(place), date: unesc(date), capacity: capacity === '' ? null : Number(capacity), open: Number(open) || 0,
+}));
+
 // watcher 를 텍스트에 적용해 신호를 뽑는다.
 // 반환: { kind, signal, available?, detail }
 export function evaluate(watcher, text, { json } = {}) {
@@ -119,7 +129,7 @@ export function evaluate(watcher, text, { json } = {}) {
     }
     case 'qnet': { // fetchQnetSeats 가 만든 표(지역/시험장/시험일자/정원/잔여)
       if (!/<table/i.test(text)) return { kind: 'seats', signal: null, available: null, detail: 'Q-Net 잔여석 표 없음' };
-      const rows = [...String(text).matchAll(/<tr>((?:<td>[\s\S]*?<\/td>)+)<\/tr>/g)].map((m) => [...m[1].matchAll(/<td>([\s\S]*?)<\/td>/g)].map((c) => c[1]));
+      const rows = qnetTableRows(text);
       const open = rows.map((r) => Number(r[4]) || 0);
       const available = open.reduce((a, b) => a + b, 0);
       const capacity = rows.reduce((a, r) => a + (Number(r[3]) || 0), 0);

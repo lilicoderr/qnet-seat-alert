@@ -31,7 +31,7 @@ export function backoffMs(attempt, baseMs = 1000, maxMs = 30000) {
 // 다시 해도 소용없는 응답(4xx, 점검 안내)은 곧바로 포기한다.
 const fatal = (message) => Object.assign(new Error(message), { fatal: true });
 
-async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, sleepImpl, noRetryStatus }) {
+export async function fetchWithRetry(watcher, { fetchImpl, timeoutMs, retries, baseMs, sleepImpl, noRetryStatus }) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();

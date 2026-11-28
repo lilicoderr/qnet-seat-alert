@@ -7,3 +7,5 @@ state.json
 state.json.tmp
 .qnet-alert/
 history.jsonl
+.env.tmp
+config.json.tmp

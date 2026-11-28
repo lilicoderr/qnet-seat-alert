@@ -18,21 +18,29 @@ const post = (fetchText, id, data, headers, referer) => fetchText({
   url: `${BASE}?id=${id}&gSite=Q`, method: 'POST', body: new URLSearchParams(data).toString(), headers: { ...headers, Referer: referer },
 });
 
+// 정적 단계를 하나씩: 감시와 웹 UI 의 선택 목록이 같은 읽기 전용 요청을 쓴다.
+export const listExams = async (fetchText) => parseExamList(await fetchText({ url: ref('rcv00301'), method: 'GET' }));
+export const loadQualForm = async (exam, fetchText) => parseQualForm(await post(fetchText, 'rcv00302', { planId: exam.planId, seqNo: exam.seqNo, implYY: exam.implYY, implSeq: exam.implSeq, qualGb: exam.qualGb, gId: exam.gId }, FORM, ref('rcv00301')));
+export async function loadSidos(exam, form, jm, fetchText) {
+  const rs = form.rs[jm.idx];
+  const data = [...form.base, ['planId', rs.rsPlanId], ['seqNo', rs.rsSeqNo], ['implYY', rs.rsImplYY], ['implSeq', rs.rsImplSeq], ['jmCd', rs.rsJmCd], ['sameYN', rs.rsSameYN], ['sameImplYN', rs.rsSameImplYN], ['jmNm', rs.rsJmNm], ['JongMook', String(jm.idx)], ['selFields', '00'], ['selField', '00'], ...form.rs.flatMap((r) => Object.entries(r))];
+  return parseSidoOptions(await post(fetchText, 'rcv00303', data, FORM, ref('rcv00302', exam.gId)));
+}
+
 // 정적 단계. 반환: { state } 또는 { none: '사유' }
 async function resolveStatics(w, fetchText, now) {
-  const exams = parseExamList(await fetchText({ url: ref('rcv00301'), method: 'GET' }));
+  const exams = await listExams(fetchText);
   const re = new RegExp(w.examPattern || '기능사');
   const hit = exams.filter((e) => re.test(e.name));
   if (!hit.length) return { none: '조건에 맞는 접수 중 시험 없음' };
   const upcoming = hit.filter((e) => e.start > now).sort((a, b) => a.start - b.start)[0];
   const exam = hit.find((e) => e.start <= now && now <= e.end) || null;
   if (!exam) return { none: upcoming ? `접수 시작 전: ${upcoming.name}` : `접수 종료: ${hit[0].name}`, startAt: upcoming?.start };
-  const form = parseQualForm(await post(fetchText, 'rcv00302', { planId: exam.planId, seqNo: exam.seqNo, implYY: exam.implYY, implSeq: exam.implSeq, qualGb: exam.qualGb, gId: exam.gId }, FORM, ref('rcv00301')));
-  const jm = form.jongmok.find((j) => j.name.includes(w.jongmok || ''));
+  const form = await loadQualForm(exam, fetchText);
+  const jm = form.jongmok.find((j) => j.name === w.jongmok) || form.jongmok.find((j) => j.name.includes(w.jongmok || ''));
   if (!jm) throw new QnetLayoutError(`종목 '${w.jongmok}' 없음. 가능: ${form.jongmok.map((j) => j.name).join(', ')}`);
   const rs = form.rs[jm.idx];
-  const data = [...form.base, ['planId', rs.rsPlanId], ['seqNo', rs.rsSeqNo], ['implYY', rs.rsImplYY], ['implSeq', rs.rsImplSeq], ['jmCd', rs.rsJmCd], ['sameYN', rs.rsSameYN], ['sameImplYN', rs.rsSameImplYN], ['jmNm', rs.rsJmNm], ['JongMook', String(jm.idx)], ['selFields', '00'], ['selField', '00'], ...form.rs.flatMap((r) => Object.entries(r))];
-  const sidos = parseSidoOptions(await post(fetchText, 'rcv00303', data, FORM, ref('rcv00302', exam.gId)));
+  const sidos = await loadSidos(exam, form, jm, fetchText);
   const recptCd = w.recptCd || '01';
   const dtl = JSON.parse(await post(fetchText, 'rcv00303s02', { ...common(exam, rs), val: recptCd }, AJAX, ref('rcv00303', exam.gId))).recptList?.[0]?.id;
   const sido = w.region ? sidos.find((s) => s.text.includes(w.region) || s.value.includes(w.region))?.value ?? null : '';
